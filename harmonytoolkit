@@ -32,6 +32,9 @@ import hashlib
 
 import datetime
 
+import cv2
+
+
 import os
 import random
 import time
@@ -109,6 +112,7 @@ else:
 #You can change the repository you want to update it from in the "MAIN_REPO"
 #variable, if you want to change it to another repo containing a modified 
 #version of my toolkit ^v^
+    
 def update_script(repo):
 
     if os.getuid != 0:
@@ -880,6 +884,18 @@ def makeQR(data, name="qr.png", display=True):
             ascii_art += '\n'
         
         return ascii_art
+    
+def read_QR(filename):
+
+    try:
+        img = cv2.imread(filename)
+        detect = cv2.QRCodeDetector()
+        value, points, straight_qrcode = detect.detectAndDecode(img)
+        return value
+    except Exception as e:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: {e}")
+        return
+
 
 # Function to print each letter in a different color
 def rainbow(txt):
@@ -940,6 +956,8 @@ parser.add_argument("-zm","--zero-metadata", help=f"\t[{GOLD}✚{RESET}] Clears 
 parser.add_argument("-qr", "--qrcode", help=f"\t[{GOLD}✚{RESET}] Creates a QR code from the input. If the input is a file, it will read it and create a QR code from it. If the input is a string, it will create a QR code from it.", nargs="*")
 parser.add_argument("-qrT", "--qrcode-terminal", help=f"\t[{GOLD}✚{RESET}] Creates a QR code from the input and displays it in the terminal. If the input is a file, it will read it and create a QR code from it. If the input is a string, it will create a QR code from it.", nargs="*")
 
+parser.add_argument("-rQR","--read-QR-code", help=f"\t[{GOLD}✚{RESET}] Reads a QR code from an image.", nargs="*")
+
 parser.add_argument("-md5", help=f"\t[{GOLD}✚{RESET}] Calculates the MD-5 checksum of file(s).",nargs="*")
 parser.add_argument("-sha256", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-256 checksum of file(s).",nargs="*")
 parser.add_argument("-sha1", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-1 checksum of file(s).",nargs="*")
@@ -967,7 +985,40 @@ parser.add_argument("-uwu", "--uwuify", help=f"\t[{GOLD}✚{RESET}] UwU-ifies th
 parser.add_argument("-ver", "--version", help=f"\t[{GOLD}✚{RESET}] Displays the version of {GOLD}{BOLD}Camille's Harmony Toolkit{RESET}", action="store_true")
 parser.add_argument("-cre", "--credits", help=f"\t[{GOLD}✚{RESET}] Displays the credits for {GOLD}{BOLD}Camille's Harmony Toolkit{RESET}", action="store_true")
 
+parser.add_argument("--establish-alias",help=f"\t[{GOLD}✚{RESET}] Establishes an alias for the toolkit. Used like so : --establish-alias <alias>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
+
 args = parser.parse_args()
+
+if args.establish_alias:
+    
+    if shellName == "zsh":
+
+        if os.path.exists("~/.zshrc"):
+
+            with open("~/.zshrc", "r") as f:
+                if f.read().find("alias " + args.establish_alias[0] + "='python3 " + os.path.realpath(__file__) + "'") != -1:
+                    print(f"{CRIMSON}{BOLD}Error{RESET}: An alias with this name already exists. Try again with a different name")
+                    exit(0)
+
+
+        os.system("echo \"alias " + args.establish_alias[0] + "='python3 " + os.path.realpath(__file__) + "'\" >> ~/.zshrc")
+
+    elif shellName == "bash":
+
+        if os.path.exists("~/.bashrc"):
+            
+            with open("~/.bashrc", "r") as f:
+                if f.read().find("alias " + args.establish_alias[0] + "='python3 " + os.path.realpath(__file__) + "'") != -1:
+                    print(f"{CRIMSON}{BOLD}Error{RESET}: An alias with this name already exists. Try again with a different name")
+                    exit(0)
+
+        os.system("echo \"alias " + args.establish_alias[0] + "='python3 " + os.path.realpath(__file__) + "'\" >> ~/.bashrc")
+
+    else:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Your shell is not supported. Try again with bash or zsh")
+        exit(0)
+
+    exit(0)
 
 if args.update:
     update_script(MAIN_REPO)
@@ -1054,7 +1105,6 @@ if args.zero_metadata:
     try:
         #if it is a list, provide a progress bar
         if type(args.zero_metadata) == list:
-            print(args.zero_metadata)
             for i in args.zero_metadata:
                 print(f"Zeroing metadata of {GOLD}{i}{RESET}")
                 for j in range(len(args.zero_metadata)):
@@ -1127,6 +1177,27 @@ if args.qrcode_terminal:
         print(makeQR(open(args.input,"r").read(),display=True))
     else:
         print(makeQR(args.input,display=True))
+
+if args.read_QR_code:
+
+    for i in args.read_QR_code:
+        if not os.path.isfile(i):
+            print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+            exit(99)
+
+        data = read_QR(i)
+
+        if data:
+
+            print(f"\n{BOLD}{CYAN}{'-'*os.get_terminal_size().columns}{RESET}")
+
+            print(f"[{CYAN}>{RESET}] Data read from {GOLD}{BOLD}{i}{RESET}")
+
+            print(f"{BOLD}{CYAN}{'-'*os.get_terminal_size().columns}{RESET}")
+
+            print(f"{RESET}{data}{RESET}")
+
+            print(f"{BOLD}{CYAN}{'-'*os.get_terminal_size().columns}{RESET}")
 
 if args.separate == None:
     args.separate = 0
