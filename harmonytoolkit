@@ -53,6 +53,10 @@ MAIN_REPO = "TheDarkWolfer/Camille-s-Harmony-Toolkit"
 #? the project, and their github usernames
 MAIN_CONTRIBUTORS = {}
 
+#? A variable with the tool's data directory, in case the user
+#? wants to use it for something
+DATA_DIR = os.path.join(os.path.expanduser("~"), ".harmonytoolkit")
+
 #Defining ANSII escape codes to make outputs pretty
 
 
@@ -134,7 +138,85 @@ def update_script(repo):
     except Exception as e:
         print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {e}")
 
+def masked_input(prompt="Enter your password: ",little_char="*"):
+    if "linux" in sys.platform:
+        password = ""
+        print(prompt, end="", flush=True)
 
+        # Disable terminal echo (hide user input)
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
+
+        try:
+            while True:
+                char = sys.stdin.read(1)
+
+                # Stop input on newline (ASCII value: 10)
+                if ord(char) == 10:
+                    print()
+                    break
+
+                # Backspace (ASCII value: 127)
+                elif ord(char) == 127:
+                    if len(password) > 0:
+                        password = password[:-1]
+                        print("\b \b", end="", flush=True)  # Erase the last character from the screen
+                else:
+                    password += char
+                    print(f"{little_char}", end="", flush=True)  # Print an asterisk instead of the actual character
+        finally:
+            # Restore terminal settings
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+
+        return password
+    else:
+        password = ""
+        print(prompt, end="", flush=True)
+
+        while True:
+            char = msvcrt.getch().decode('utf-8')
+
+            # Stop input on Enter key (ASCII value: 13)
+            if ord(char) == 13:
+                print()
+                break
+
+            # Backspace (ASCII value: 8)
+            elif ord(char) == 8:
+                if len(password) > 0:
+                    password = password[:-1]
+                    print("\b \b", end="", flush=True)  # Erase the last character from the screen
+            else:
+                password += char
+                print("*", end="", flush=True)  # Print an asterisk instead of the actual character
+
+        return password
+
+import msvcrt  # For Windows-specific console input
+import getpass
+
+def masked_input(prompt="Enter your password: "):
+    password = ""
+    print(prompt, end="", flush=True)
+
+    while True:
+        char = msvcrt.getch().decode('utf-8')
+
+        # Stop input on Enter key (ASCII value: 13)
+        if ord(char) == 13:
+            print()
+            break
+
+        # Backspace (ASCII value: 8)
+        elif ord(char) == 8:
+            if len(password) > 0:
+                password = password[:-1]
+                print("\b \b", end="", flush=True)  # Erase the last character from the screen
+        else:
+            password += char
+            print("*", end="", flush=True)  # Print an asterisk instead of the actual character
+
+    return password
 
 def generate_key():
     """
@@ -299,6 +381,112 @@ def obliterate(file_path, passes=5):
 #####################################################################################################################
 
 
+def create_quarantine_dir():
+
+    if os.getuid != 0:
+        print(f"{BOLD}{CRIMSON}Erorr{RESET}{BOLD} : you need to be {CRIMSON}root{RESET}{BOLD} to update the script !")
+        exit(-1)
+
+    if os.path.exists("/quarantine"):
+        print(f"{BOLD}{CRIMSON}Quarantine{RESET} dir found !{RESET}")
+    else:
+        os.mkdir("/quarantine")
+        os.system("chmod 700 /quarantine")
+
+    os.system(f"touch {DATA_DIR}/quarantine_checksums.txt")
+
+
+def quarantine(file_path):
+    
+        if os.getuid != 0:
+            print(f"{BOLD}{CRIMSON}Erorr{RESET}{BOLD} : you need to be {CRIMSON}root{RESET}{BOLD} to update the script !")
+            exit(-1)
+    
+        if not os.path.exists("/quarantine"):
+            print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : /quarantine doesn't exist !")
+            exit(-1)
+    
+        if not os.path.exists(file_path):
+            print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {file_path} doesn't exist !")
+            exit(-1)
+    
+        create_quarantine_dir()
+
+        if type(file_path) == list:
+            for f in file_path:
+
+                file_sha256 = generate_checksum(f, algorithm='sha256')
+
+                with open(f"{DATA_DIR}/quarantine_checksums.txt", "w") as j:
+
+                    j.write(f"{f},{file_sha256},\n")
+
+                    j.close()
+
+                shutil.move(f, "/quarantine")
+
+        shutil.move(file_path, "/quarantine")
+
+
+def integrity_snapshot(file_path):
+    
+            if os.getuid != 0:
+                print(f"{BOLD}{CRIMSON}Erorr{RESET}{BOLD} : you need to be {CRIMSON}root{RESET}{BOLD} to update the script !")
+                exit(-1)
+        
+            if not os.path.exists(file_path):
+                print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {file_path} doesn't exist !")
+                exit(-1)
+    
+            files = []
+            for root, dirs, files in os.walk(file_path):
+                for file in files:
+                    files.append(os.path.join(root, file))
+    
+            print(f"{BOLD}{CRIMSON}Integrity Snapshot{RESET} : getting ready to process {GOLD}{BOLD}{len(files)}{RESET} files...")
+    
+            og_len = len(files)
+    
+            with open(f"{DATA_DIR}/snapshot.sha256", "w") as j:
+    
+                for f in files:
+                    j.write(f"{f},{generate_checksum(f, algorithm='sha256')},\n")
+    
+                j.close()
+
+def integrity_check(file_path):
+        
+        if os.getuid != 0:
+            print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : you need to be {CRIMSON}root{RESET}{BOLD} to update the script !")
+            exit(-1)
+    
+        if not os.path.exists(file_path):
+            print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {file_path} doesn't exist !")
+            exit(-1)
+
+        files = []
+        for root, dirs, files in os.walk(file_path):
+            for file in files:
+                files.append(os.path.join(root, file))
+
+        print(f"{BOLD}{CRIMSON}Integrity Check{RESET} : getting ready to process {GOLD}{BOLD}{len(files)}{RESET} files...")
+
+        og_len = len(files)
+
+        for f in files:
+            with open(f"{DATA_DIR}/snapshot.sha256", "r") as j:
+                if f"{f},{generate_checksum(f, algorithm='sha256')},\n" not in j.read():
+                    print(f"{BOLD}{CRIMSON}Integrity Check{RESET} : {RED}{f}{RESET} has been modified/is new !")
+                    if str(input(f"{BOLD}{CRIMSON}Integrity Check{RESET} : do you want to quarantine it ? (y/n)")).lower() == "y":
+                        quarantine(f)
+                        print(f"{BOLD}{CRIMSON}Integrity Check{RESET} : {RED}{f}{RESET} has been quarantined !")
+                    else:
+                        print(f"{BOLD}{CRIMSON}Integrity Check{RESET} : {RED}{f}{RESET} has been left alone !")
+                else:
+                    print(f"{BOLD}{CRIMSON}Integrity Check{RESET} : {GREEN}{f}{RESET} is safe !")
+                    files.remove(f)
+
+
 #Define a dictionnary to link nibbles to their
 #hex counterparts, to make translation easier
 binary2hexDIC = {"0000":"0", "0001":"1", "0010":"2", "0011":"3", "0100":"4", "0101":"5", "0110":"6", "0111":"7", "1000":"8", "1001":"9", "1010":"a", "1011":"b", "1100":"c", "1101":"d", "1110":"e", "1111":"f"}
@@ -316,6 +504,42 @@ binary2hexDIC = {"0000":"0", "0001":"1", "0010":"2", "0011":"3", "0100":"4", "01
 #
 #It's useless to draw this graph in a comment, but it's monday,
 #01:00am on the dot, so anything goes I guess...
+
+def setup_scorched_earth():
+    if os.getuid() != 0:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: You need to be root to run this script")
+
+    if not os.path.exists("/var/scorched_earth_list"):
+        os.system("touch /var/scorched_earth_list")
+
+    if not os.path.exists("/var/scorched_earth_list"):
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Could not create the file /var/scorched_earth_list")
+
+    print(f"{CRIMSON}{BOLD}WARNING : Scorched Earth Strategy is a tool created in the sole purpose of rendering the data on the current device\n unrecoverable, by using extreme file deletion methods. This tool is a hail mary, and should only be used as a last resort after careful consideration.\n\n{RESET}")
+
+    print(f"{BOLD}You will be asked to setup a password in order to use the scorched earth strategy. This password will be hashed and asked for when you decide to press the big red button.\n{RESET}")
+
+    print(f"{BOLD}You will be asked to enter a password four times. This is to prevent any typos from ruining your day.\n{RESET}")
+
+    attempts = []
+
+    for i in range(4):
+        password = str(hash_password(str(masked_input(f"{BOLD}Password attempt {GOLD}{i+1}{RESET}"))))
+        attempts.append(password)
+
+    if attempts[0] == attempts[1] == attempts[2] == attempts[3]:
+        print(f"{BOLD}Password set successfully !\n{RESET}")
+        with open("{DATA_DIR}/PASSWORD.ses.hash", "w") as f:
+            f.write(attempts[0])
+
+        print(f"{BOLD}Remember your password, keep it safe, and {CRIMSON}only{RESET}{BOLD} use the scorched earth strategy as a {CRIMSON}last resort{RESET}{BOLD} !\n{RESET}")
+
+    else:
+        print(f"{BOLD}{CRIMSON}Error{RESET}: Passwords don't match !")
+        if str(input(f"{BOLD}Do you want to try again ? (y/n)")).lower() == "y":
+            setup_scorched_earth()
+        else:
+            exit(-1)
 
 def nuke(file_paths,verbose=False):
     if not file_paths:
@@ -397,32 +621,27 @@ def scorched_earth_strategy():
 
     prefix = f"{GOLD}[{CRIMSON}{BOLD}⛒{RESET}{GOLD}]{RESET}"
 
-    first_half = [
-    "In moonlit bytes, the huntress weaves,",
-    "through Artemis' silver woods she cleaves;",
-    "with keystrokes swift as arrows flight,",
-    "she guards the wild, both day and night."
-    ]    
+    if os.getuid() != 0:
+        print(f"{prefix} {CRIMSON}{BOLD}Error{RESET}: You need to be root to run this script")
+        exit(-1)
 
-    for i in first_half:
-        print(f"{prefix}{PURPLE}{BOLD}♪{RESET}{i}")
+    if os.path.exists("{DATA_DIR}/PASSWORD.ses.hash"): 
+        with open("{DATA_DIR}/PASSWORD.ses.hash", "r") as f:
+            HASH = f.read()
 
-    verse1 = str(input(f"{prefix}Verse {GREEN}{BOLD}1{RESET}>")).lower()
-    verse2 = str(input(f"{prefix}Verse {GREEN}{BOLD}2{RESET}>")).lower()
-    verse3 = str(input(f"{prefix}Verse {GREEN}{BOLD}3{RESET}>")).lower()
-    verse4 = str(input(f"{prefix}Verse {GREEN}{BOLD}4{RESET}>")).lower()
+    else:
+        print(f"{prefix} {CRIMSON}{BOLD}Error{RESET}: No password set !")
+        setup_scorched_earth()
 
-    HASH1 = '$2b$12$nSSN0DEPrkfUN428iXIsFO2G8BOsNPv77ZJvByemhv5ObQIIyAaMq'
-    HASH2 = '$2b$12$kAAWAqAZ95hRVfqMR3qPpOR6vo9TMi0OIaTXfYiim0LrlVijsJLuG'
-    HASH3 = '$2b$12$OwZeIa4Z.u1eSLhh7DdIVO7HqwYu4KPtAJf3ofnbrtsnPiDpGREXa'
-    HASH4 = '$2b$12$Kb2mvrh/m.XBwX1Q1Eu18O8335V2kTNE6hJiMd4b1UpKS0d1wiwpC' 
+    password_input = str(masked_input(f"{prefix} {BOLD}{CRIMSON}Scorched Earth Password :{RESET}\n[{GOLD}{BOLD}>{RESET}{GOLD}]{RESET} "))
 
-    if compare_password_hash(verse1, HASH1) and compare_password_hash(verse2, HASH2) and compare_password_hash(verse3, HASH3) and compare_password_hash(verse4, HASH4):
+
+    if compare_password_hash(password_input, HASH):
         print(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {GREEN}{BOLD}ACCESS GRANTED{RESET} {GOLD}{BLINK}/!\\{RESET}")
         print(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {GREEN}{BOLD}SCORCHED EARTH STRATEGY PRIMED{RESET} {GOLD}{BLINK}/!\\{RESET}")
     else:
         print(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {CRIMSON}{BOLD}ACCESS DENIED{RESET} {GOLD}{BLINK}/!\\{RESET}")
-        exit(99)
+        exit(-1)
 
     if str(input(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {GREEN}{BOLD}ARE YOU SURE YOU WANT TO CONTINUE ? \n THIS OPERATION IS PERMANENT, THIS IS YOUR LAST CHANCE !\n{RESET} {BOLD}({GREEN}yes{RESET}{BOLD}/{CRIMSON}no{RESET}{BOLD}){RESET} {GOLD}{BLINK}/!\\{RESET}\n{GOLD}[{RESET}{GREEN}{BOLD}>{RESET}{GOLD}]{RESET}")).lower() != "yes":
         print(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {CRIMSON}{BOLD}ABORTING{RESET} {GOLD}{BLINK}/!\\{RESET}")
@@ -966,6 +1185,12 @@ parser.add_argument("-n", "--nuke", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Deletes
 parser.add_argument("-e", "--encrypt", nargs=2, help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Encrypts the input file with AES-128. Used like so : --encrypt <file> <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.")
 parser.add_argument("-d", "--decrypt", nargs=2, help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Decrypts the input file with AES-128. Used like so : --decrypt <file> <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.")
 parser.add_argument("-kgen", "--keygen", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Generates a new AES-128 key and saves it to a file. Used like so : --keygen <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.",action="store_true")
+
+parser.add_argument("-ic","--integrity-check", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Checks the integrity of the input file. Used like so : --integrity-check <file>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
+parser.add_argument("-icS","--integrity-check-save", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Checks the integrity of the input file and saves the result to {GOLD}{DATA_DIR}/snapshot.sha256{RESET} . Used like so : --integrity-check-save <file>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=2)
+parser.add_argument("-qf","--quarantine-file",help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Moves a file to /quarantine (and creates the directory if it doesn't exist, alongside setting it to permissions rwc-------). Used like so : --quarantine-file <file(s)> {BOLD}{CRIMSON}Use with caution{RESET}",nargs="*")
+
+parser.add_argument("--setup-scorched-earth",help=f"\t[{CRIMSON}☢{RESET}] Sets up the scorched earth strategy. {BOLD}{CRIMSON}Use with caution{RESET}.",action="store_true")
 #This one is only for extreme cases, since it *will* fuck up your computer.
 parser.add_argument("-ses","--scorched-earth-strategy",help=f"\t[{CRIMSON}☢{RESET}] Wipes as many vital parts of the computer as possible. Used as a last resort option. Requires a password to be used. {BOLD}{CRIMSON}Use with caution{RESET}.",action="store_true")
 
@@ -1065,6 +1290,37 @@ if args.sha1:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
     exit(0)
 
+if args.quarantine:
+    try:
+        for i in args.quarantine:
+            quarantine(i)
+            print(f"{GREEN}{BOLD}File quarantined{RESET}")
+    except FileNotFoundError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+    except PermissionError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+    exit(-1)
+
+if args.integrity_check:
+    try:
+        print(f"{GREEN}{BOLD}Preparing integrity check{RESET} of {GOLD}{args.integrity_check[0]}{RESET}")
+        integrity_check(args.integrity_check[0])
+    except FileNotFoundError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+    except PermissionError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+    exit(0)
+
+if args.integrity_check_save:
+    try:
+        print(f"{GREEN}{BOLD}Preparing integrity check{RESET} of {GOLD}{args.integrity_check_save[0]}{RESET}")
+        integrity_snapshot(args.integrity_check_save[0])
+    except FileNotFoundError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+    except PermissionError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+    exit(0)
+
 if args.scorched_earth_strategy:
     scorched_earth_strategy()
 
@@ -1113,7 +1369,7 @@ if args.zero_metadata:
                         subprocess.call(f"exiftool -all={'█'*random.randint(5,15)} {i}",shell=True)
                     except PermissionError:
                         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied for {i}. Try running this script as root")
-                        exit(99)
+                        exit(-1)
                 print(f"\n{GREEN}{BOLD}Metadata zeroed{RESET}")
 
     except FileNotFoundError:
@@ -1142,7 +1398,7 @@ else:
 
 if args.analyze:
     if is_ascii(args.input):
-        print(f"|>{GREEN}{BOLD}ASCII{RESET}<| {CYAN}{BOLD}binary{RESET} | {CRIMSON}{BOLD}hex{RESET} |")
+        print(f"| >{GREEN}{BOLD}ASCII{RESET}< | {CYAN}{BOLD}binary{RESET} | {CRIMSON}{BOLD}hex{RESET} |")
     elif is_binary(args.input):
         print(f"|{GREEN}{BOLD}ascii{RESET}| >{CYAN}{BOLD}BINARY{RESET}< | {CRIMSON}{BOLD}hex{RESET} |")
     elif is_hex(args.input):
