@@ -723,7 +723,6 @@ def ascii2hex(input):
 #and display them in real time, until the command
 #is finished running
 def run_command(command):
-    import subprocess
 
     try:
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)

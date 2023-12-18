@@ -1,0 +1,17 @@
+argparse
+re
+pyperclip
+subprocess
+cryptography
+requests
+shutil
+qrcode
+hashlib
+datetime
+opencv-python
+os
+time
+multiprocessing
+bcrypt
+random
+signal
