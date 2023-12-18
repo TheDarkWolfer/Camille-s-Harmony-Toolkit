@@ -55,6 +55,3 @@ Generate a QR Code:
     `harmonytoolkit -qr "Sample Text"`
 
 Refer to the provided help page for a complete list of options and their descriptions.
-Support
-
-For support, questions, or contributions, please contact the developer at <developer's contact>.
