@@ -8,6 +8,12 @@
 #TODO: Create a man page for the tool
 
 
+#If you plan to add more to this tool, please
+#track the time you spent here and update the
+#following variable, to help people keep track
+#of how long they may spend on this tool as well
+TOTAL_HOURS_WASTED_HERE = 700
+
 #Import argparse for CLI interaction
 import argparse
 #REGEX to check the input type
@@ -34,14 +40,24 @@ import datetime
 
 import cv2
 
+from pytube import YouTube
 
-import os
+import os, sys
 import random
 import time
 from multiprocessing import Pool
 import multiprocessing
 import bcrypt, random, string
 import signal
+import socket
+
+#*Exit codes :
+#* Here are some exit codes and their meanings, 
+#* in order to simplify understanding what went
+#* wrong when you get an error code.
+#! exit(-1)     =   PERMISSION ERROR
+#! exit(404)    =   File/Dir not found
+#! exit(7)      =   Action aborted by user
 
 #? Variables containing some info about the tool
 VERSION = "1.0.2"
@@ -56,6 +72,7 @@ MAIN_CONTRIBUTORS = {}
 #? A variable with the tool's data directory, in case the user
 #? wants to use it for something
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".harmonytoolkit")
+DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 
 #Defining ANSII escape codes to make outputs pretty
 
@@ -110,7 +127,9 @@ else:
 
     BLINK = ''
 
-
+if not os.path.exists(DATA_DIR):
+    os.mkdir(DATA_DIR)
+    print(f"{BOLD}{YELLOW}Warning{RESET}{BOLD} : {DATA_DIR} doesn't exist ! Creating it...")
 
 #A small function to download the latest release of the tool from github
 #You can change the repository you want to update it from in the "MAIN_REPO"
@@ -137,6 +156,30 @@ def update_script(repo):
         shutil.copy2('harmonytoolkit', '/usr/bin/harmonytoolkit')
     except Exception as e:
         print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {e}")
+
+#A function to load and use plugins made by third parties. 
+#! MAKE SURE THIRD PARTY PLUGINS ARE SAFE TO USE AND DON'T
+#! CONTAIN MALICIOUS CODE, AS THEY ARE RUN AS PART OF THE
+#! PROGRAM ITSELF ! ! !
+        
+import importlib.util
+
+def discover_plugins(plugin_dir):
+    plugins = []
+    for filename in os.listdir(plugin_dir):
+        if filename.endswith('.py'):
+            filepath = os.path.join(plugin_dir, filename)
+            plugins.append(filepath)
+    return plugins
+
+def load_plugin(plugin_path):
+    plugin_name = os.path.splitext(os.path.basename(plugin_path))[0]
+    spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+    plugin_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(plugin_module)
+    return plugin_module
+
+#END OF PLUGIN PART
 
 def masked_input(prompt="Enter your password: ",little_char="*"):
     if "linux" in sys.platform:
@@ -169,54 +212,21 @@ def masked_input(prompt="Enter your password: ",little_char="*"):
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
         return password
-    else:
-        password = ""
-        print(prompt, end="", flush=True)
 
-        while True:
-            char = msvcrt.getch().decode('utf-8')
+def download_video(url, path=DOWNLOAD_DIR):
+    yt = YouTube(url)
+    video = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+    print(f"Starting download: {GREEN}{BOLD}{video.title}{RESET}")
+    video.download(path)
+    print(f"Video downloaded: {GREEN}{BOLD}{video.title}{RESET}")
 
-            # Stop input on Enter key (ASCII value: 13)
-            if ord(char) == 13:
-                print()
-                break
+def download_audio(url, path=DOWNLOAD_DIR):
+    yt = YouTube(url)
+    audio = yt.streams.filter(only_audio=True).first()
+    print(f"Starting download: {GREEN}{BOLD}{audio.title}{RESET}")
+    audio.download(path, filename=f"{yt.title}.mp3")
+    print(f"Audio downloaded: {GREEN}{BOLD}{audio.title}{RESET}")
 
-            # Backspace (ASCII value: 8)
-            elif ord(char) == 8:
-                if len(password) > 0:
-                    password = password[:-1]
-                    print("\b \b", end="", flush=True)  # Erase the last character from the screen
-            else:
-                password += char
-                print("*", end="", flush=True)  # Print an asterisk instead of the actual character
-
-        return password
-
-import msvcrt  # For Windows-specific console input
-import getpass
-
-def masked_input(prompt="Enter your password: "):
-    password = ""
-    print(prompt, end="", flush=True)
-
-    while True:
-        char = msvcrt.getch().decode('utf-8')
-
-        # Stop input on Enter key (ASCII value: 13)
-        if ord(char) == 13:
-            print()
-            break
-
-        # Backspace (ASCII value: 8)
-        elif ord(char) == 8:
-            if len(password) > 0:
-                password = password[:-1]
-                print("\b \b", end="", flush=True)  # Erase the last character from the screen
-        else:
-            password += char
-            print("*", end="", flush=True)  # Print an asterisk instead of the actual character
-
-    return password
 
 def generate_key():
     """
@@ -404,11 +414,11 @@ def quarantine(file_path):
     
         if not os.path.exists("/quarantine"):
             print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : /quarantine doesn't exist !")
-            exit(-1)
+            exit(404)
     
         if not os.path.exists(file_path):
             print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {file_path} doesn't exist !")
-            exit(-1)
+            exit(404)
     
         create_quarantine_dir()
 
@@ -436,7 +446,7 @@ def integrity_snapshot(file_path):
         
             if not os.path.exists(file_path):
                 print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {file_path} doesn't exist !")
-                exit(-1)
+                exit(404)
     
             files = []
             for root, dirs, files in os.walk(file_path):
@@ -462,7 +472,7 @@ def integrity_check(file_path):
     
         if not os.path.exists(file_path):
             print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {file_path} doesn't exist !")
-            exit(-1)
+            exit(404)
 
         files = []
         for root, dirs, files in os.walk(file_path):
@@ -539,7 +549,7 @@ def setup_scorched_earth():
         if str(input(f"{BOLD}Do you want to try again ? (y/n)")).lower() == "y":
             setup_scorched_earth()
         else:
-            exit(-1)
+            exit(7)
 
 def nuke(file_paths,verbose=False):
     if not file_paths:
@@ -645,7 +655,7 @@ def scorched_earth_strategy():
 
     if str(input(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {GREEN}{BOLD}ARE YOU SURE YOU WANT TO CONTINUE ? \n THIS OPERATION IS PERMANENT, THIS IS YOUR LAST CHANCE !\n{RESET} {BOLD}({GREEN}yes{RESET}{BOLD}/{CRIMSON}no{RESET}{BOLD}){RESET} {GOLD}{BLINK}/!\\{RESET}\n{GOLD}[{RESET}{GREEN}{BOLD}>{RESET}{GOLD}]{RESET}")).lower() != "yes":
         print(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {CRIMSON}{BOLD}ABORTING{RESET} {GOLD}{BLINK}/!\\{RESET}")
-        exit(99)
+        exit(7)
     else:
         print(f"{prefix} {GOLD}{BLINK}/!\\{RESET} {GREEN}{BOLD}SCORCHED EARTH STRATEGY ENGAGED{RESET} {GOLD}{BLINK}/!\\{RESET}")
 
@@ -1176,6 +1186,9 @@ parser.add_argument("-qrT", "--qrcode-terminal", help=f"\t[{GOLD}✚{RESET}] Cre
 
 parser.add_argument("-rQR","--read-QR-code", help=f"\t[{GOLD}✚{RESET}] Reads a QR code from an image.", nargs="*")
 
+parser.add_argument("-dla","--download-audio", help=f"\t[{GOLD}✚{RESET}] Downloads the audio from a YouTube video.", nargs="*")
+parser.add_argument("-dlv","--download-video", help=f"\t[{GOLD}✚{RESET}] Downloads a YouTube video.", nargs="*")
+
 parser.add_argument("-md5", help=f"\t[{GOLD}✚{RESET}] Calculates the MD-5 checksum of file(s).",nargs="*")
 parser.add_argument("-sha256", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-256 checksum of file(s).",nargs="*")
 parser.add_argument("-sha1", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-1 checksum of file(s).",nargs="*")
@@ -1186,6 +1199,8 @@ parser.add_argument("-e", "--encrypt", nargs=2, help=f"\t[{CRIMSON}{BOLD}◼{RES
 parser.add_argument("-d", "--decrypt", nargs=2, help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Decrypts the input file with AES-128. Used like so : --decrypt <file> <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.")
 parser.add_argument("-kgen", "--keygen", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Generates a new AES-128 key and saves it to a file. Used like so : --keygen <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.",action="store_true")
 
+parser.add_argument("-P","--ping", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Pings a host. Used like so : --ping <host>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
+
 parser.add_argument("-ic","--integrity-check", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Checks the integrity of the input file. Used like so : --integrity-check <file>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
 parser.add_argument("-icS","--integrity-check-save", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Checks the integrity of the input file and saves the result to {GOLD}{DATA_DIR}/snapshot.sha256{RESET} . Used like so : --integrity-check-save <file>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=2)
 parser.add_argument("-qf","--quarantine-file",help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Moves a file to /quarantine (and creates the directory if it doesn't exist, alongside setting it to permissions rwc-------). Used like so : --quarantine-file <file(s)> {BOLD}{CRIMSON}Use with caution{RESET}",nargs="*")
@@ -1194,7 +1209,7 @@ parser.add_argument("--setup-scorched-earth",help=f"\t[{CRIMSON}☢{RESET}] Sets
 #This one is only for extreme cases, since it *will* fuck up your computer.
 parser.add_argument("-ses","--scorched-earth-strategy",help=f"\t[{CRIMSON}☢{RESET}] Wipes as many vital parts of the computer as possible. Used as a last resort option. Requires a password to be used. {BOLD}{CRIMSON}Use with caution{RESET}.",action="store_true")
 
-parser.add_argument("-sh","--shell",help=f"\t[{CRIMSON}⏼{RESET}] Launches the {GOLD}{BOLD}Camille's Harmony Toolkit{RESET} shell.",action="store_true")
+parser.add_argument("-sh","--shell",help=f"\t[{CRIMSON}⏼{RESET}] Launches the {GOLD}{BOLD}{__file__}{RESET} shell.",action="store_true")
 
 #Further arguments are more easter eggs caused by lack of 
 #care for my mental health and willingness to inflict said
@@ -1206,12 +1221,97 @@ parser.add_argument("-sc", "--silly-cipher", help=f"\t[{GOLD}✚{RESET}] Turns t
 parser.add_argument("-uwu", "--uwuify", help=f"\t[{GOLD}✚{RESET}] UwU-ifies the output\t[|binary:no|hex:maybe|ascii:yes|]", action="store_true")
 
 #Here are some args to display credits and other info
-parser.add_argument("-ver", "--version", help=f"\t[{GOLD}✚{RESET}] Displays the version of {GOLD}{BOLD}Camille's Harmony Toolkit{RESET}", action="store_true")
-parser.add_argument("-cre", "--credits", help=f"\t[{GOLD}✚{RESET}] Displays the credits for {GOLD}{BOLD}Camille's Harmony Toolkit{RESET}", action="store_true")
+parser.add_argument("-ver", "--version", help=f"\t[{GOLD}✚{RESET}] Displays the version of {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
+parser.add_argument("-cre", "--credits", help=f"\t[{GOLD}✚{RESET}] Displays the credits for {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
+parser.add_argument("-pl","--plugins",help=f"\t[{GOLD}✚{RESET}] Displays the plugins for {GOLD}{BOLD}{__file__}{RESET}",action="store_true")
+parser.add_argument("-pi","--plugin-info",help=f"\t[{GOLD}✚{RESET}] Displays the info for a plugin. Used like so : --plugin-info <plugin name>",nargs="*")
 
 parser.add_argument("--establish-alias",help=f"\t[{GOLD}✚{RESET}] Establishes an alias for the toolkit. Used like so : --establish-alias <alias>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
 
+plugin_list = []
+
+try:
+
+    plugins = discover_plugins(os.path.expanduser("~/.harmonytoolkit/plugins"))
+    print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{len(plugins)}{RESET} plugins found.")
+
+    for i in plugins:
+        plugin = load_plugin(i)
+        plugin.register_args(parser)
+
+        plugin_list.append(plugin)
+
+except Exception as e:
+    print(f"{CRIMSON}{BOLD}Error{RESET} : Could not load plugins.")
+    print(e)
+
 args = parser.parse_args()
+
+
+if len(plugin_list) > 0:
+    for i in plugin_list:
+        i.execute(args)
+
+if args.plugins:
+    print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{len(plugins)}{RESET} plugins found.")
+    for i in plugins:
+        print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
+
+if args.plugin_info:
+
+    info_plugin_list = []
+
+    for i in args.plugin_info:
+        info_plugin_list.append(i)
+
+    try:
+        
+        for i in plugins:
+            if i.split("/")[-1] in info_plugin_list:
+                print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
+                plugin = load_plugin(i)
+                print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
+                for j in plugin.info():
+                    print(f"\t{CYAN}{j}{RESET} : {plugin.info()[j]}")
+                print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
+                break
+
+    except:
+
+        print(f"{CRIMSON}{BOLD}Error{RESET} : Could not find plugin {args.plugin_info[0]}")
+
+if args.ping:
+
+    host = args.ping[0]
+
+    if type(host) != list and os.path.exists(host):
+        with open(host, "r") as f:
+            host = f.read().strip("\n")
+
+    print(f"{GREEN}{BOLD}PING{RESET} : pinging {CYAN}{host}{RESET}.\nPress {RED}CTRL{RESET}+{RED}C{RESET} to stop")
+
+    avg_ping = 0
+    ping_results = []
+
+    print(host)
+
+    try:
+
+        while True:
+
+                ping = subprocess.check_output(["ping", "-c", "1", host]).decode().split("\n")[1].split(" ")[6].split("=")[1]
+                ping_results.append(float(ping))
+                avg_ping = sum(ping_results) / len(ping_results)
+                avg_ping = round(avg_ping,3)
+                output = f"{GREEN}{BOLD}PING{RESET} : {CYAN}{host}{RESET} : {BOLD}{GREEN}{ping}{RESET} ms (average : {BOLD}{GREEN}{avg_ping}{RESET} ms)"
+                lines = f"{'-'*(int(os.get_terminal_size().columns)-len(output))}"
+                print(f"{output}{lines}", end="\r")
+                time.sleep(0.5)
+
+    except KeyboardInterrupt:
+
+        print(f"\n{GREEN}{BOLD}PING{RESET} : stopped pinging {CYAN}{host}{RESET}")
+        exit(7)
 
 if args.establish_alias:
     
@@ -1240,7 +1340,7 @@ if args.establish_alias:
 
     else:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Your shell is not supported. Try again with bash or zsh")
-        exit(0)
+        exit(9)
 
     exit(0)
 
@@ -1249,7 +1349,7 @@ if args.update:
     exit(0)
 
 if args.version:
-    print(f"{GOLD}{BOLD}Camille's Harmony Toolkit{RESET} version {VERSION}")
+    print(f"{GOLD}{BOLD}{__file__}{RESET} version {VERSION}")
     exit(0)
 
 if args.credits:
@@ -1266,8 +1366,10 @@ if args.md5:
             print(f"{GREEN}{BOLD}MD-5{RESET} checksum of {GOLD}{i}{RESET} : {BOLD}{GREEN}{generate_checksum(i, 'md5')}{RESET}")
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.sha256:
@@ -1276,8 +1378,10 @@ if args.sha256:
             print(f"{GREEN}{BOLD}SHA-256{RESET} checksum of {GOLD}{i}{RESET} : {BOLD}{GREEN}{generate_checksum(i, 'sha256')}{RESET}")
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.sha1:
@@ -1286,20 +1390,34 @@ if args.sha1:
             print(f"{GREEN}{BOLD}SHA-1{RESET} checksum of {GOLD}{i}{RESET} : {BOLD}{GREEN}{generate_checksum(i, 'sha1')}{RESET}")
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
-if args.quarantine:
+if args.download_audio:
+    for i in args.download_audio:
+        download_audio(i)
+    exit(0)
+
+if args.download_video:
+    for i in args.download_video:
+        download_video(i)
+    exit(0)
+
+if args.quarantine_file:
     try:
         for i in args.quarantine:
             quarantine(i)
             print(f"{GREEN}{BOLD}File quarantined{RESET}")
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
-    exit(-1)
+        exit(-1)
+    exit(0)
 
 if args.integrity_check:
     try:
@@ -1307,8 +1425,10 @@ if args.integrity_check:
         integrity_check(args.integrity_check[0])
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.integrity_check_save:
@@ -1317,8 +1437,10 @@ if args.integrity_check_save:
         integrity_snapshot(args.integrity_check_save[0])
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.scorched_earth_strategy:
@@ -1334,8 +1456,10 @@ if args.encrypt:
         print(f"{GREEN}{BOLD}File encrypted{RESET}")
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.decrypt:
@@ -1344,16 +1468,28 @@ if args.decrypt:
         print(f"{GREEN}{BOLD}File decrypted{RESET}")
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.keygen:
+
+    if os.file.exists(args.input):
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File already exists. Do you want to {GOLD}overwrite{RESET} it ? ({BOLD}{GREEN}y{RESET}/{BOLD}{CRIMSON}n{RESET})")
+
+        if str(input(f"[{BOLD}{GREEN}>{RESET}]")).lower() == "y":
+            pass
+        else:
+            exit(7)
+
     try:
         save_key_to_file(generate_key(), args.input)
         print(f"{GREEN}{BOLD}Key saved to {args.input}{RESET}")
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
 if args.zero_metadata:
@@ -1374,8 +1510,10 @@ if args.zero_metadata:
 
     except FileNotFoundError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
     except PermissionError:
         print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
     exit(0)
 
         
@@ -1438,7 +1576,7 @@ if args.read_QR_code:
     for i in args.read_QR_code:
         if not os.path.isfile(i):
             print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
-            exit(99)
+            exit(404)
 
         data = read_QR(i)
 
@@ -1506,4 +1644,12 @@ elif (args.silly_cipher and args.separate <= 1):
     out = f"┏{args.input}\n┗{out}"
 elif (args.silly_cipher and args.separate > 1):
     out = f"{GOLD}{BOLD}▽{RESET}[{GOLD}{BOLD}Original{RESET}:{CYAN}{BOLD}{args.input}{RESET}-{BOLD}{GOLD}length{RESET}:{CYAN}{BOLD}{len(args.input)}{RESET}]\n{out}"
+
+
+#So, funny thing, the output doesn't automatically display
+#unless you tell it to. Wow, who would have guessed ?! Not
+#my sorry ass, apparently x)
+if out:
+    print(out)
+
 exit(0)
