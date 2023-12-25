@@ -3,6 +3,7 @@ PLUGIN_METADATA = {
     'version': '1.0',
     'author': 'Camille.Is_Me',
     'description': 'Converts given string to uppercase. A template plugin to help user understand plugins.',
+    'dependencies':[] # Write down your script's dependencies here
 }
 
 def info():
