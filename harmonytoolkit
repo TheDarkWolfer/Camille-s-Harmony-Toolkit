@@ -60,7 +60,7 @@ import socket
 #! exit(7)      =   Action aborted by user
 
 #? Variables containing some info about the tool
-VERSION = "1.0.2"
+VERSION = "1.0.4"
 AUTHORS = "Camille.Is_Me"
 
 MAIN_REPO = "TheDarkWolfer/Camille-s-Harmony-Toolkit"
@@ -1253,7 +1253,6 @@ if len(plugin_list) > 0:
         i.execute(args)
 
 if args.plugins:
-    print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{len(plugins)}{RESET} plugins found.")
     for i in plugins:
         print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
 
@@ -1272,7 +1271,12 @@ if args.plugin_info:
                 plugin = load_plugin(i)
                 print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
                 for j in plugin.info():
-                    print(f"\t{CYAN}{j}{RESET} : {plugin.info()[j]}")
+                    if j == "dependencies":
+                        print(f"\t{CYAN}dependencies{RESET} :")
+                        for i in plugin.info()[j]:
+                            print(f"\t\t- {i}")
+                    else:
+                        print(f"\t{CYAN}{j}{RESET} : {plugin.info()[j]}")
                 print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
                 break
 

@@ -3,6 +3,7 @@ PLUGIN_METADATA = {
     'version': '1.0',
     'author': 'Camille.Is_Me',
     'description': 'A plugin to play the hangman game in the terminal.',
+    'dependencies':['nltk','random', 'math']
 }
 
 def info():
