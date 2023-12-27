@@ -2,7 +2,7 @@ PLUGIN_METADATA = {
     'name': 'Uppercase Converter',
     'version': '1.0',
     'author': 'Camille.Is_Me',
-    'description': 'Converts given string to uppercase. A template plugin to help user understand plugins.',
+    'description': 'A demo plugin to help users understand how plugins work',
     'dependencies':[] # Write down your script's dependencies here
 }
 
@@ -14,13 +14,13 @@ def info():
 
 def register_args(parser):
     """
-    Register arguments for the uppercase plugin.
+    Register arguments for the demo plugin.
     """
-    parser.add_argument('--uppercase', type=str, help='Convert this string to uppercase')
+    parser.add_argument('--me', type=str, help='Function for the demo plugin')
 
 def execute(args):
     """
-    Execute the uppercase conversion.
+    Run the code in here
     """
-    if args.uppercase:
-        print(args.uppercase.upper())
+    if args.me:
+        print(f"This plugin is name {__file__}")
