@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 
 #TODO: Comment the code better
-#TODO: Add version number & credits
-#TODO: Figure out whether or not to share it on github
 #TODO: Restructure the code to make it more readable
 #TODO: Iron out any bugs
 #TODO: Create a man page for the tool
@@ -12,7 +10,7 @@
 #track the time you spent here and update the
 #following variable, to help people keep track
 #of how long they may spend on this tool as well
-TOTAL_HOURS_WASTED_HERE = 700
+TOTAL_HOURS_WASTED_HERE = 803
 
 #Import argparse for CLI interaction
 import argparse
@@ -60,7 +58,7 @@ import socket
 #! exit(7)      =   Action aborted by user
 
 #? Variables containing some info about the tool
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 AUTHORS = "Camille.Is_Me"
 
 MAIN_REPO = "TheDarkWolfer/Camille-s-Harmony-Toolkit"
@@ -79,53 +77,22 @@ DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 
 shellName = os.environ['SHELL'].split("/")[-1]
 
-if shellName == "zsh":
+RED = '\033[31m'
+GREEN = '\033[32m'
+YELLOW = '\033[33m'
+BLUE = '\033[34m'
+PURPLE = '\033[35m'
+CYAN = '\033[36m'
+GOLD = '\033[38;5;214m'
+WHITE = '\033[37m'
+ORANGE = '\033[38;5;208m'
+CRIMSON = '\033[38;5;196m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
 
-    RED = '\033[31m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    BLUE = '\033[34m'
-    PURPLE = '\033[35m'
-    CYAN = '\033[36m'
-    GOLD = '\033[38;5;214m'
-    WHITE = '\033[37m'
-    ORANGE = '\033[38;5;208m'
-    CRIMSON = '\033[38;5;196m'
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
+BLINK = '\033[5m'
 
-    BLINK = '\033[5m'
-elif shellName == "bash":
 
-    RED = '\033[31m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    BLUE = '\033[34m'
-    PURPLE = '\033[35m'
-    CYAN = '\033[36m'
-    GOLD = '\033[38;5;214m'
-    WHITE = '\033[37m'
-    ORANGE = '\033[38;5;208m'
-    CRIMSON = '\033[38;5;196m'
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
-
-    BLINK = '\033[5m'
-else:
-    RED = ''
-    GREEN = ''
-    YELLOW = ''
-    BLUE = ''
-    PURPLE = ''
-    CYAN = ''
-    GOLD = ''
-    WHITE = ''
-    ORANGE = ''
-    CRIMSON = ''
-    RESET = ''
-    BOLD = ''
-
-    BLINK = ''
 
 if not os.path.exists(DATA_DIR):
     os.mkdir(DATA_DIR)
@@ -1250,7 +1217,7 @@ args = parser.parse_args()
 
 if len(plugin_list) > 0:
     for i in plugin_list:
-        i.execute(args)
+        i.execute(args,DOWNLOAD_DIR,DATA_DIR)
 
 if args.plugins:
     for i in plugins:
