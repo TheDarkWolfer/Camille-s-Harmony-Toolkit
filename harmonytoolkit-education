@@ -1,0 +1,799 @@
+#!/usr/bin/python3
+
+#TODO: Comment the code better
+#TODO: Restructure the code to make it more readable
+#TODO: Iron out any bugs
+#TODO: Create a man page for the tool
+
+
+#If you plan to add more to this tool, please
+#track the time you spent here and update the
+#following variable, to help people keep track
+#of how long they may spend on this tool as well
+TOTAL_HOURS_WASTED_HERE = 803
+
+#Import argparse for CLI interaction
+import argparse
+#REGEX to check the input type
+import re
+#And pyperclip, if the user wants to save
+#the output to the user's clipboard
+import pyperclip
+
+#We import subprocess for the scorched earth strategy
+import subprocess
+
+#This bit is for later, in order to create a non-blocking user input that is easier
+#to manipulate than Python's standard input() function
+import termios, sys, tty, requests, shutil
+
+import qrcode
+
+import hashlib
+
+import datetime
+
+import cv2
+
+from pytube import YouTube
+
+import os, sys
+import time
+
+#*Exit codes :
+#* Here are some exit codes and their meanings, 
+#* in order to simplify understanding what went
+#* wrong when you get an error code.
+#! exit(-1)     =   PERMISSION ERROR
+#! exit(404)    =   File/Dir not found
+#! exit(7)      =   Action aborted by user
+
+#? Variables containing some info about the tool
+VERSION = "1.0.5-e"
+AUTHORS = "Camille.Is_Me"
+
+MAIN_REPO = "TheDarkWolfer/Camille-s-Harmony-Toolkit"
+
+#? Variables containing the main contributors to
+#? the project, and their github usernames
+MAIN_CONTRIBUTORS = {}
+
+#? A variable with the tool's data directory, in case the user
+#? wants to use it for something
+DATA_DIR = os.path.join(os.path.expanduser("~"), ".harmonytoolkit")
+DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
+
+#Defining ANSII escape codes to make outputs pretty
+
+
+shellName = os.environ['SHELL'].split("/")[-1]
+
+RED = '\033[31m'
+GREEN = '\033[32m'
+YELLOW = '\033[33m'
+BLUE = '\033[34m'
+PURPLE = '\033[35m'
+CYAN = '\033[36m'
+GOLD = '\033[38;5;214m'
+WHITE = '\033[37m'
+ORANGE = '\033[38;5;208m'
+CRIMSON = '\033[38;5;196m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
+
+BLINK = '\033[5m'
+
+
+
+if not os.path.exists(DATA_DIR):
+    os.mkdir(DATA_DIR)
+    os.system("chmod 700 {DATA_DIR}")
+    print(f"{BOLD}{YELLOW}Warning{RESET}{BOLD} : {DATA_DIR} doesn't exist ! Creating it...")
+
+#A small function to download the latest release of the tool from github
+#You can change the repository you want to update it from in the "MAIN_REPO"
+#variable, if you want to change it to another repo containing a modified 
+#version of my toolkit ^v^
+    
+def update_script(repo):
+
+    if os.getuid != 0:
+        print(f"{BOLD}{CRIMSON}Erorr{RESET}{BOLD} : you need to be {CRIMSON}root{RESET}{BOLD} to update the script !")
+        exit(-1)
+
+    try:
+        # Get the latest release from GitHub API
+        response = requests.get(f"https://api.github.com/repos/{repo}/releases/latest")
+        data = response.json()
+        download_url = data['assets'][0]['browser_download_url']  # Adjust as needed
+
+        # Download the release
+        r = requests.get(download_url, allow_redirects=True)
+        open('harmonytoolkit', 'wb').write(r.content)
+
+        # Copy to /usr/bin (requires sudo)
+        shutil.copy2('harmonytoolkit', '/usr/bin/harmonytoolkit')
+    except Exception as e:
+        print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {e}")
+
+#A function to load and use plugins made by third parties. 
+#! MAKE SURE THIRD PARTY PLUGINS ARE SAFE TO USE AND DON'T
+#! CONTAIN MALICIOUS CODE, AS THEY ARE RUN AS PART OF THE
+#! PROGRAM ITSELF ! ! !
+        
+
+#Create the .loadplugins file in the data dir, if you want to load
+#the plugin. For the education version, plugins are disabled by default
+if os.path.exists(os.path.expanduser("~/.harmonytoolkit/.loadplugins")):
+
+    import importlib.util
+
+    def discover_plugins(plugin_dir):
+        plugins = []
+        for filename in os.listdir(plugin_dir):
+            if filename.endswith('.py'):
+                filepath = os.path.join(plugin_dir, filename)
+                plugins.append(filepath)
+        return plugins
+
+    def load_plugin(plugin_path):
+        plugin_name = os.path.splitext(os.path.basename(plugin_path))[0]
+        spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+        plugin_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plugin_module)
+        return plugin_module
+
+#END OF PLUGIN PART
+
+def download_video(url, path=DOWNLOAD_DIR):
+    yt = YouTube(url)
+    video = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+    print(f"Starting download: {GREEN}{BOLD}{video.title}{RESET}")
+    video.download(path)
+    print(f"Video downloaded: {GREEN}{BOLD}{video.title}{RESET}")
+
+def download_audio(url, path=DOWNLOAD_DIR):
+    yt = YouTube(url)
+    audio = yt.streams.filter(only_audio=True).first()
+    print(f"Starting download: {GREEN}{BOLD}{audio.title}{RESET}")
+    audio.download(path, filename=f"{yt.title}.mp3")
+    print(f"Audio downloaded: {GREEN}{BOLD}{audio.title}{RESET}")
+
+def generate_checksum(file_path, algorithm='sha256'):
+    """
+    Generate a checksum for a given file using the specified algorithm.
+    
+    :param file_path: Path to the file for which to generate the checksum.
+    :param algorithm: Hashing algorithm (e.g., 'sha256', 'md5', 'sha1').
+    :return: The generated checksum.
+    """
+    # Create a hash object
+    hash_func = getattr(hashlib, algorithm)()
+    
+    # Open the file and read it in chunks
+    with open(file_path, "rb") as file:
+
+        if os.path.getsize(file_path) == 0:
+            raise ValueError(f"{file_path} is empty")
+        
+        for chunk in iter(lambda: file.read(4096), b""):
+            hash_func.update(chunk)
+    
+    # Return the hexadecimal checksum
+    return hash_func.hexdigest()
+
+#####################################################################################################################
+
+
+#Define a dictionnary to link nibbles to their
+#hex counterparts, to make translation easier
+binary2hexDIC = {"0000":"0", "0001":"1", "0010":"2", "0011":"3", "0100":"4", "0101":"5", "0110":"6", "0111":"7", "1000":"8", "1001":"9", "1010":"a", "1011":"b", "1100":"c", "1101":"d", "1110":"e", "1111":"f"}
+
+#Define the conversion functions, with a triangle like the
+#diagram below. Each function takes in a string, and returns 
+#it's corresponding translation
+#      hexadecimal
+#      /        \
+#     /          \
+#    /            \
+#   /              \
+#  /                \
+#binary------------ascii
+#
+#It's useless to draw this graph in a comment, but it's monday,
+#01:00am on the dot, so anything goes I guess...
+
+def list_directory_contents(directory):
+    output = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            
+            file_path = os.path.join(root, file)
+            output.append(file_path)
+    return output
+
+def is_ascii(s):
+    try:
+        s.encode('ascii')
+        return True
+    except UnicodeEncodeError:
+        return False
+
+def is_binary(s):
+    return re.fullmatch(r'[01]+', s) is not None
+
+def is_hex(s):
+    return re.fullmatch(r'[0-9a-fA-F]+', s) is not None
+
+#And we pool the three above functions into one to 
+#streamline the sorting process
+def check_type(input):
+    return (1 if is_ascii(input) else 0) + (2 if is_binary(input) else 0) + (4 if is_hex(input) else 0)
+
+
+#This function will be useful later, mainly for
+#hexadecimal conversion. We take in an input, and
+#output it split by pairs of characters
+def split_by_pair(input):
+    #Split the input by bits of two characters
+    output = [input[i:i+2] for i in range(0, len(input), 2)]
+    
+    #If we have an uneven piece, we add a 0
+    #in front of it to prevent errors
+    if len(output) % 2 == 0:
+        output[0] = "0" + output[0]
+
+    #And we return the split string
+    return output
+
+#This one is for a silly cipher I made up with
+#graph paper and lack of sleep. It's not very
+#strong, but it's fun to use
+def silly_cipher(cipher_input):
+    cipher_dict = {"00": " ", "01": "◢", "10": "◤", "11": "◼"}
+
+    cipher_input = ascii2binary(cipher_input)  # Ensure this returns a binary string
+    cipher_input = split_by_pair(cipher_input) # Ensure this returns a list of string pairs
+
+    cipher_input[0] = cipher_input[0][1:] # Remove the leading 0 from the first pair
+
+    output = ""
+
+    for i in cipher_input:
+        output += cipher_dict[i]
+
+
+    return output
+
+def uwuify(text):
+
+    for w in ["l", "r"]:
+        text = text.replace(w, "w")
+        text = text.replace(w.upper(), "W")
+
+    for w in ["n", "m"]:
+        text = text.replace(w, "ny")
+        text = text.replace(w.upper(), "Ny")
+
+    for w in ["th", "Th", "TH"]:
+        text = text.replace(w, "d")
+        text = text.replace(w.upper(), "D")
+
+    for w in ["ove", "OVE", "Ove"]:
+        text = text.replace(w, "uv")
+        text = text.replace(w.upper(), "Uv")
+
+    return text
+
+def string_to_braille(text):
+    # Braille dictionary for letters, numbers and a few symbols as well
+    braille_dict = {
+        'a': '⠁', 'b': '⠃', 'c': '⠉', 'd': '⠙', 'e': '⠑', 'f': '⠋', 'g': '⠛', 'h': '⠓', 'i': '⠊', 'j': '⠚',
+        'k': '⠅', 'l': '⠇', 'm': '⠍', 'n': '⠝', 'o': '⠕', 'p': '⠏', 'q': '⠟', 'r': '⠗', 's': '⠎', 't': '⠞',
+        'u': '⠥', 'v': '⠧', 'w': '⠺', 'x': '⠭', 'y': '⠽', 'z': '⠵',
+        '0': '⠚', '1': '⠁', '2': '⠃', '3': '⠉', '4': '⠙', '5': '⠑', '6': '⠋', '7': '⠛', '8': '⠓', '9': '⠊',
+        ' ': '⠀', '.': '⠲', ',': '⠂', ';': '⠆', ':': '⠒', '?': '⠦', '!': '⠖', "'": '⠄', '-': '⠤', '_': '⠤',
+        '(': '⠐⠣', ')': '⠐⠜', '[': '⠐⠣', ']': '⠐⠜', '{': '⠐⠣', '}': '⠐⠜', '<': '⠐⠤', '>': '⠐⠦', '/': '⠸⠌',
+        '*': '⠐⠔', '&': '⠯', '^': '⠘', '%': '⠨', '$': '⠫', '#': '⠼⠴',
+        '+': '⠬', '=': '⠐⠶', '\\': '⠸⠡', '|': '⠸⠴', '"': '⠐⠄'
+    }
+
+    #Here we get rid of the pipe separator we 
+    #use for binary and hex, as it would make
+    #the braille output look weird
+    text = text.replace(" | "," ")
+
+    # Special character for uppercase letters
+    uppercase_prefix = '⠠'
+
+    # Convert each character to Braille
+    braille_text = ''
+    for char in text:
+        if char.isupper():
+            braille_text += uppercase_prefix + braille_dict[char.lower()]
+        else:
+            braille_text += braille_dict.get(char, '')
+
+    return braille_text
+
+#Conversion function : binary to hexadecimal
+def convert_binary2hex(input):
+    #Create an empty string
+    #to hold the output
+    output = ""
+
+    #Pair each nibble with it's hexadecimal
+    #counterpart using the binary2hexDIC dictionnary
+    for i in range(0, len(input), 4):
+        output += binary2hexDIC[input[i:i+4]]
+
+    #And send the output back
+    return output
+
+#Conversion function : binary to ascii ("regular" text)
+def binary2ascii(input):
+
+    #We convert the input to hexadecimal, making
+    #conversion to ascii easier
+    input = convert_binary2hex(input)
+
+    #And we split the hexadecimal input
+    #by pairs.
+    input = split_by_pair(input)
+
+    #Create the empty string
+    #to hold the output
+    output = ""
+
+    #And now, for each pair, we map it
+    #to the according ascii character
+    for i in input:
+        output += chr(int(i, 16))
+
+    #And now we return the output
+    return output
+
+def ascii2binary(input):
+    output = ""
+    for i in input:
+        output += bin(ord(i))[2:].zfill(8)
+
+    return output
+
+def hex2binary(input):
+    output = ""
+    for i in input:
+        output += bin(int(i, 16))[2:].zfill(4)
+
+    return output
+
+def binary2hex(input):
+    output = ""
+    for i in range(0, len(input), 4):
+        output += hex(int(input[i:i+4], 2))[2:]
+
+    return output
+
+def hex2ascii(input):
+    output = ""
+    for i in range(0, len(input), 2):
+        output += chr(int(input[i:i+2], 16))
+
+    return output
+
+def ascii2hex(input):
+    output = ""
+    for i in input:
+        output += hex(ord(i))[2:]
+
+    return output
+
+def makeQR(data, name="qr.png", display=True):
+    # Create the QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    if not display:
+        img.save(name)
+
+    if display:
+        # Convert the QR code to ASCII art
+        ascii_art = ""
+        matrix = qr.get_matrix()
+        for row in matrix:
+            ascii_art += ''.join(["██" if cell else "  " for cell in row])
+            ascii_art += '\n'
+        
+        return ascii_art
+    
+def read_QR(filename):
+
+    try:
+        img = cv2.imread(filename)
+        detect = cv2.QRCodeDetector()
+        value, points, straight_qrcode = detect.detectAndDecode(img)
+        return value
+    except Exception as e:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: {e}")
+        return
+
+
+# Function to print each letter in a different color
+def rainbow(txt):
+
+    colors = [
+    '\033[31m', # Red
+    '\033[33m', # Yellow
+    '\033[32m', # Green
+    '\033[36m', # Cyan
+    '\033[34m', # Blue
+    '\033[35m', # Magenta
+    ]
+
+    colored_text = ""
+    for i, char in enumerate(txt):
+        colored_text += colors[i % len(colors)] + char
+    colored_text += '\033[0m'  # Reset color at the end
+    
+    return colored_text
+
+def credits():
+    print(f'\nMade by :\t<{CRIMSON}{BLINK}{CRIMSON}♥{RESET} {BOLD}{CYAN}~Ca{PURPLE}mil{WHITE}le.{PURPLE}Is_{CYAN}Me~{RESET} {CRIMSON}{BLINK}{CRIMSON}♥{RESET}>\n')
+    print(f"{BOLD}Here are the {BLINK}✨{RESET}{rainbow('main contributors')}{BOLD}{BLINK}✨{RESET} :")
+    for i in MAIN_CONTRIBUTORS:
+        print(f"|{i} : {MAIN_CONTRIBUTORS[i]}")
+
+class CustomHelpAction(argparse._HelpAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.print_help()
+        parser.exit(message=f'\nMade by :\t<{CRIMSON}{BLINK}{CRIMSON}♥{RESET} {BOLD}{CYAN}~Ca{PURPLE}mil{WHITE}le.{PURPLE}Is_{CYAN}Me~{RESET} {CRIMSON}{BLINK}{CRIMSON}♥{RESET}>\n')
+
+parser = argparse.ArgumentParser(description=f"A general tookit for IT, ~{GOLD}{BOLD}education edition{RESET}~",add_help=False)
+
+parser.add_argument('-h', '--help', help=f"[{GOLD}{BOLD}HELP{RESET}] Displays this help message", default=argparse.SUPPRESS, action=CustomHelpAction)
+parser.add_argument("-u","--update", help=f"\t[{GOLD}{BOLD}✚{RESET}] Updates the toolkit", action="store_true")
+
+parser.add_argument("input", help=f"\t[{CYAN}{BOLD}STRING{RESET}] Input string", nargs='?', default="")
+
+parser.add_argument("-b2a", "--binary2ascii", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts binary to ascii", action="store_true")
+parser.add_argument("-a2b", "--ascii2binary", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts ascii to binary", action="store_true")
+parser.add_argument("-h2b", "--hex2binary", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts hex to binary", action="store_true")
+parser.add_argument("-b2h", "--binary2hex", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts binary to hex", action="store_true")
+parser.add_argument("-h2a", "--hex2ascii", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts hex to ascii", action="store_true")
+parser.add_argument("-a2h", "--ascii2hex", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts ascii to hex", action="store_true")
+parser.add_argument("-ir", "--regular-input", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\t Take in a string simply. Used when you want to convert to braille, or other options", action="store_true")
+
+parser.add_argument("-s", "--separate", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tSeparates the output by octets (or by nibble if called more than once)", action="count")
+parser.add_argument("-f", "--format", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tFormats the output ({GREEN}{BOLD}ON{RESET} by default)", action="store_true")
+
+parser.add_argument("-c", "--copy", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tSaves the output to the clipboard, so that you can paste it with ctrl+v", action="store_true")
+
+parser.add_argument("-C","--color",help=f"\t[{GOLD}✚{RESET}] Makes the output colorful (default : on) \t\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
+
+parser.add_argument("-an", "--analyze", help=f"\t[{GOLD}✚{RESET}] Analyzes the input and tells you what it is. \t\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
+
+parser.add_argument("-qr", "--qrcode", help=f"\t[{GOLD}✚{RESET}] Creates a QR code from the input. If the input is a file, it will read it and create a QR code from it. If the input is a string, it will create a QR code from it.", nargs="*")
+parser.add_argument("-qrT", "--qrcode-terminal", help=f"\t[{GOLD}✚{RESET}] Creates a QR code from the input and displays it in the terminal. If the input is a file, it will read it and create a QR code from it. If the input is a string, it will create a QR code from it.", nargs="*")
+
+parser.add_argument("-rQR","--read-QR-code", help=f"\t[{GOLD}✚{RESET}] Reads a QR code from an image.", nargs="*")
+
+parser.add_argument("-dla","--download-audio", help=f"\t[{GOLD}✚{RESET}] Downloads the audio from a YouTube video.", nargs="*")
+parser.add_argument("-dlv","--download-video", help=f"\t[{GOLD}✚{RESET}] Downloads a YouTube video.", nargs="*")
+
+parser.add_argument("-md5", help=f"\t[{GOLD}✚{RESET}] Calculates the MD-5 checksum of file(s).",nargs="*")
+parser.add_argument("-sha256", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-256 checksum of file(s).",nargs="*")
+parser.add_argument("-sha1", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-1 checksum of file(s).",nargs="*")
+
+parser.add_argument("-P","--ping", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Pings a host. Used like so : --ping <host>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
+
+#Further arguments are more easter eggs caused by lack of 
+#care for my mental health and willingness to inflict said
+#lack of care onto others through memes and quirky jokes.
+
+parser.add_argument("-k","--kawaii",help=f"\t[{GOLD}✚{RESET}] Makes the output *kawaii* \t\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
+parser.add_argument("-b","--braille",help=f"\t[{GOLD}✚{RESET}] Turns the output into braille characters\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
+parser.add_argument("-sc", "--silly-cipher", help=f"\t[{GOLD}✚{RESET}] Turns the output into a silly cipher\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
+parser.add_argument("-uwu", "--uwuify", help=f"\t[{GOLD}✚{RESET}] UwU-ifies the output\t[|binary:no|hex:maybe|ascii:yes|]", action="store_true")
+
+#Here are some args to display credits and other info
+parser.add_argument("-ver", "--version", help=f"\t[{GOLD}✚{RESET}] Displays the version of {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
+parser.add_argument("-cre", "--credits", help=f"\t[{GOLD}✚{RESET}] Displays the credits for {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
+parser.add_argument("-pl","--plugins",help=f"\t[{GOLD}✚{RESET}] Displays the plugins for {GOLD}{BOLD}{__file__}{RESET}",action="store_true")
+parser.add_argument("-pi","--plugin-info",help=f"\t[{GOLD}✚{RESET}] Displays the info for a plugin. Used like so : --plugin-info <plugin name>",nargs="*")
+
+plugin_list = []
+
+try:
+
+    plugins = discover_plugins(os.path.expanduser("~/.harmonytoolkit/plugins"))
+    print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{len(plugins)}{RESET} plugins found.")
+
+    for i in plugins:
+        plugin = load_plugin(i)
+        plugin.register_args(parser)
+
+        plugin_list.append(plugin)
+
+except Exception as e:
+    print(f"{CRIMSON}{BOLD}Error{RESET} : Could not load plugins.")
+    print(e)
+
+args = parser.parse_args()
+
+
+if len(plugin_list) > 0:
+    for i in plugin_list:
+        i.execute(args,DOWNLOAD_DIR,DATA_DIR)
+
+if args.plugins:
+    for i in plugins:
+        print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
+
+if args.plugin_info:
+
+    info_plugin_list = []
+
+    for i in args.plugin_info:
+        info_plugin_list.append(i)
+
+    try:
+        
+        for i in plugins:
+            if i.split("/")[-1] in info_plugin_list:
+                print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
+                plugin = load_plugin(i)
+                print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
+                for j in plugin.info():
+                    if j == "dependencies":
+                        print(f"\t{CYAN}dependencies{RESET} :")
+                        for i in plugin.info()[j]:
+                            print(f"\t\t- {i}")
+                    else:
+                        print(f"\t{CYAN}{j}{RESET} : {plugin.info()[j]}")
+                print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
+                break
+
+    except:
+
+        print(f"{CRIMSON}{BOLD}Error{RESET} : Could not find plugin {args.plugin_info[0]}")
+
+if args.ping:
+
+    host = args.ping[0]
+
+    if type(host) != list and os.path.exists(host):
+        with open(host, "r") as f:
+            host = f.read().strip("\n")
+
+    print(f"{GREEN}{BOLD}PING{RESET} : pinging {CYAN}{host}{RESET}.\nPress {RED}CTRL{RESET}+{RED}C{RESET} to stop")
+
+    avg_ping = 0
+    ping_results = []
+
+    print(host)
+
+    try:
+
+        while True:
+
+                ping = subprocess.check_output(["ping", "-c", "1", host]).decode().split("\n")[1].split(" ")[6].split("=")[1]
+                ping_results.append(float(ping))
+                avg_ping = sum(ping_results) / len(ping_results)
+                avg_ping = round(avg_ping,3)
+                output = f"{GREEN}{BOLD}PING{RESET} : {CYAN}{host}{RESET} : {BOLD}{GREEN}{ping}{RESET} ms (average : {BOLD}{GREEN}{avg_ping}{RESET} ms)"
+                lines = f"{'-'*(int(os.get_terminal_size().columns)-len(output))}"
+                print(f"{output}{lines}", end="\r")
+                time.sleep(0.5)
+
+    except KeyboardInterrupt:
+
+        print(f"\n{GREEN}{BOLD}PING{RESET} : stopped pinging {CYAN}{host}{RESET}")
+        exit(7)
+
+if args.update:
+
+    if os.getuid() != 0:
+        print(f"{CRIMSON}You aren't root !{RESET}")
+        exit(-1)
+
+    update_script(MAIN_REPO)
+    exit(0)
+
+if args.version:
+    print(f"{GOLD}{BOLD}{__file__}{RESET} version {VERSION}")
+    exit(0)
+
+if args.credits:
+    credits()
+    exit(0)
+
+if args.md5:
+    try:
+        for i in args.md5:
+            print(f"{GREEN}{BOLD}MD-5{RESET} checksum of {GOLD}{i}{RESET} : {BOLD}{GREEN}{generate_checksum(i, 'md5')}{RESET}")
+    except FileNotFoundError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
+    except PermissionError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
+    exit(0)
+
+if args.sha256:
+    try:
+        for i in args.sha256:
+            print(f"{GREEN}{BOLD}SHA-256{RESET} checksum of {GOLD}{i}{RESET} : {BOLD}{GREEN}{generate_checksum(i, 'sha256')}{RESET}")
+    except FileNotFoundError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
+    except PermissionError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
+    exit(0)
+
+if args.sha1:
+    try:
+        for i in args.sha1:
+            print(f"{GREEN}{BOLD}SHA-1{RESET} checksum of {GOLD}{i}{RESET} : {BOLD}{GREEN}{generate_checksum(i, 'sha1')}{RESET}")
+    except FileNotFoundError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+        exit(404)
+    except PermissionError:
+        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
+        exit(-1)
+    exit(0)
+
+if args.download_audio:
+    for i in args.download_audio:
+        download_audio(i)
+    exit(0)
+
+if args.download_video:
+    for i in args.download_video:
+        download_video(i)
+    exit(0)
+
+if args.binary2ascii:
+    out = binary2ascii(args.input)
+elif args.ascii2binary:
+    out = ascii2binary(args.input)
+elif args.hex2binary:
+    out = hex2binary(args.input)
+elif args.binary2hex:
+    out = binary2hex(args.input)
+elif args.hex2ascii:
+    out = hex2ascii(args.input)
+elif args.ascii2hex:
+    out = ascii2hex(args.input)
+elif args.regular_input:
+    out = args.input
+else:
+    out = args.input
+
+if args.analyze:
+    if is_ascii(args.input):
+        print(f"| >{GREEN}{BOLD}ASCII{RESET}< | {CYAN}{BOLD}binary{RESET} | {CRIMSON}{BOLD}hex{RESET} |")
+    elif is_binary(args.input):
+        print(f"|{GREEN}{BOLD}ascii{RESET}| >{CYAN}{BOLD}BINARY{RESET}< | {CRIMSON}{BOLD}hex{RESET} |")
+    elif is_hex(args.input):
+        print(f"|{GREEN}{BOLD}ascii{RESET}| {CYAN}{BOLD}binary{RESET} | >{CRIMSON}{BOLD}HEX{RESET}< |")
+
+if (args.uwuify and args.braille):
+    out = string_to_braille(uwuify(args.input))
+
+
+if args.silly_cipher:
+    out = silly_cipher(out)
+if args.braille:
+    out = string_to_braille(out)
+if args.uwuify:
+    out = uwuify(out)
+
+if args.qrcode:
+
+    name = f'{datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}-QR.png'
+
+    if len(args.qrcode) > 1:
+        name = args.qrcode[1]
+    if os.path.isfile(args.qrcode[0]):
+        makeQR(open(args.qrcode[0],"r").read(),name=name,display=False)
+    else:
+        makeQR(args.qrcode[0],name=name,display=False)
+
+
+if args.qrcode_terminal:
+    if os.path.isfile(args.input):
+        print(makeQR(open(args.input,"r").read(),display=True))
+    else:
+        print(makeQR(args.input,display=True))
+
+if args.read_QR_code:
+
+    for i in args.read_QR_code:
+        if not os.path.isfile(i):
+            print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
+            exit(404)
+
+        data = read_QR(i)
+
+        if data:
+
+            print(f"\n{BOLD}{CYAN}{'-'*os.get_terminal_size().columns}{RESET}")
+
+            print(f"[{CYAN}>{RESET}] Data read from {GOLD}{BOLD}{i}{RESET}")
+
+            print(f"{BOLD}{CYAN}{'-'*os.get_terminal_size().columns}{RESET}")
+
+            print(f"{RESET}{data}{RESET}")
+
+            print(f"{BOLD}{CYAN}{'-'*os.get_terminal_size().columns}{RESET}")
+
+if args.separate == None:
+    args.separate = 0
+
+if ((args.ascii2hex) or (args.binary2hex)) and (args.separate == 1):
+    out = f' | '.join(out[i:i+2] for i in range(0, len(out), 2))
+
+elif ((args.ascii2binary) or (args.hex2binary)) and (args.separate == 1):
+    out = f' | '.join(out[i:i+8] for i in range(0, len(out), 8))
+
+if ((args.ascii2hex) or (args.binary2hex)) and (args.separate > 1):
+    out = f' | '.join(out[i:i+1] for i in range(0, len(out), 1))
+
+elif ((args.ascii2binary) or (args.hex2binary)) and (args.separate > 1):
+    out = f' | '.join(out[i:i+4] for i in range(0, len(out), 4))
+
+if ((args.silly_cipher) and (args.separate == 1)):
+    out = f'|'.join(out[i:i+4] for i in range(0, len(out), 4))
+
+if ((args.silly_cipher) and (args.separate > 1)):
+    out = f'\n'.join(out[i:i+4] for i in range(0, len(out), 4))
+
+
+if args.copy:
+    pyperclip.copy(out)
+
+cursive_letters = "𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ"
+cursive_numbers = "𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡"
+
+if (args.kawaii):
+    if (args.hex2binary or args.ascii2binary):
+        out = f'{CRIMSON}{out.replace("1",f"♥").replace("0",f".")}{RESET}'
+    elif (args.binary2hex or args.ascii2hex):
+        #replace hex letters in output with cursive letters
+        out = f'{"".join([cursive_letters[ord(i)-97] if i.isalpha() else i for i in out])}'
+        #and with cursive numbers
+        out = f'{"".join([cursive_numbers[ord(i)-48] if i.isnumeric() else i for i in out])}'
+    elif (args.binary2ascii or args.hex2ascii):
+        #replace ascii letters with cursive letters
+        out = f'{"".join([cursive_letters[ord(i)-97] if i.isalpha() else i for i in out])}'
+        #and with cursive numbers
+        out = f'{"".join([cursive_numbers[ord(i)-48] if i.isnumeric() else i for i in out])}'
+    else:
+        #throw any other output in cursive
+        out = f'{"".join([cursive_letters[ord(i)-97] if i.isalpha() else i for i in out])}'
+        out = f'{"".join([cursive_numbers[ord(i)-48] if i.isnumeric() else i for i in out])}'
+        
+elif (args.braille):
+    out = f"┏{args.input}\n┗{out}"
+elif (args.silly_cipher and args.separate <= 1):
+    out = f"┏{args.input}\n┗{out}"
+elif (args.silly_cipher and args.separate > 1):
+    out = f"{GOLD}{BOLD}▽{RESET}[{GOLD}{BOLD}Original{RESET}:{CYAN}{BOLD}{args.input}{RESET}-{BOLD}{GOLD}length{RESET}:{CYAN}{BOLD}{len(args.input)}{RESET}]\n{out}"
+
+
+#So, funny thing, the output doesn't automatically display
+#unless you tell it to. Wow, who would have guessed ?! Not
+#my sorry ass, apparently x)
+if out:
+    print(out)
+
+exit(0)
