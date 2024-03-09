@@ -167,11 +167,11 @@ def execute(args,DOWNLOAD_DIR,DATA_DIR,doForce):
 
     if args.keysize:
         if not is_power_of_two(args.keysize) and not doForce:
-            print(f"[{RED}!{RESET}] The key size is not a power of 2. There may be issues due to this !")
+            print(f"[{CRIMSON}!{RESET}] The key size is not a power of 2. There may be issues due to this !")
             print(f"[{GOLD}i{RESET}] Use -f to override this")
             exit(1)
         elif not is_power_of_two(args.keysize) and doForce:
-            print(f"[{RED}!{RESET}] The key size is not a power of 2. There may be issues due to this !")
+            print(f"[{CRIMSON}!{RESET}] The key size is not a power of 2. There may be issues due to this !")
             print(f"[{GOLD}i{RESET}] User override, proceeding...")
         
         KEYSIZE = args.keysize
@@ -198,7 +198,7 @@ def execute(args,DOWNLOAD_DIR,DATA_DIR,doForce):
             exit(0)
         
         else:
-            print(f"[!] You need to provide a valid RSA key !")
+            print(f"[{CRIMSON}!{RESET}] You need to provide a valid RSA key !")
             exit(1)
 
     if args.rsa_decrypt:
@@ -212,5 +212,5 @@ def execute(args,DOWNLOAD_DIR,DATA_DIR,doForce):
             exit(0)
         
         else:
-            print(f"[!] You need to provide a valid RSA key !")
+            print(f"[{CRIMSON}!{RESET}] You need to provide a valid RSA key !")
             exit(1)

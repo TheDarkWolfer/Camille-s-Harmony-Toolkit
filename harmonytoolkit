@@ -23,9 +23,6 @@ import pyperclip
 #We import subprocess for the scorched earth strategy
 import subprocess
 
-#####The following code is used to encrypt and decrypt files and strings using symmetric encryption with AES#########
-from cryptography.fernet import Fernet
-
 #This bit is for later, in order to create a non-blocking user input that is easier
 #to manipulate than Python's standard input() function
 import termios, sys, tty, requests, shutil
@@ -243,66 +240,6 @@ def download_audio(url, path=DOWNLOAD_DIR):
     audio.download(path, filename=f"{yt.title}.mp3")
     print(f"Audio downloaded: {GREEN}{BOLD}{audio.title}{RESET}")
 
-
-def generate_key():
-    """
-    Generate a new Fernet key and return it as a string.
-    """
-    key = Fernet.generate_key()
-    return key
-
-def save_key_to_file(key, filename):
-    """
-    Save a Fernet key to a file.
-    """
-    with open(filename, "wb") as key_file:
-        key_file.write(key)
-
-def load_key_from_file(filename):
-    """
-    Load a Fernet key from a file and return it as bytes.
-    """
-    with open(filename, "rb") as key_file:
-        key = key_file.read()
-    return key
-
-def encrypt_string(message, key):
-    """
-    Encrypt a string using the provided Fernet key.
-    """
-    fernet = Fernet(key)
-    encrypted_message = fernet.encrypt(message.encode())
-    return encrypted_message
-
-def decrypt_string(encrypted_message, key):
-    """
-    Decrypt an encrypted string using the provided Fernet key.
-    """
-    fernet = Fernet(key)
-    decrypted_message = fernet.decrypt(encrypted_message).decode()
-    return decrypted_message
-
-def encrypt_file(filename, key):
-    """
-    Encrypt a file using the provided Fernet key.
-    """
-    fernet = Fernet(key)
-    with open(filename, "rb") as file:
-        file_data = file.read()
-    encrypted_data = fernet.encrypt(file_data)
-    with open(filename, "wb") as file:
-        file.write(encrypted_data)
-
-def decrypt_file(filename, key):
-    """
-    Decrypt a file using the provided Fernet key.
-    """
-    fernet = Fernet(key)
-    with open(filename, "rb") as file:
-        encrypted_data = file.read()
-    decrypted_data = fernet.decrypt(encrypted_data)
-    with open(filename, "wb") as file:
-        file.write(decrypted_data)
 #####################################################################################################################
 def generate_checksum(file_path, algorithm='sha256'):
     """
@@ -625,10 +562,6 @@ def nuke(file_paths,verbose=False):
                         os.system(f"shred -z -u -f -n 5 {file_path}")
                     print(f"\n{CRIMSON}{BOLD}Error{RESET}: Memory error. Using shred instead for {file_path}")if verbose else None
                     return
-                    
-                key = generate_key()
-                encrypt_file(file_path, key)
-                key = random.randint(0, 100000)
                 
             os.remove(file_path)
 
@@ -1000,117 +933,6 @@ def run_command(command):
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")
 
-
-#And now, we create a function to run the shell
-#itself. It starts a loop, and waits for the user
-#to input a command. If the command is a custom
-#command, it runs it. If not, it runs it as a
-#regular shell command
-def run_shell():
-
-    help_page = {
-        "convert" : "Convert between binary, hexadecimal, and ascii",
-        "braille" : "Convert text to braille",
-        "silly_cipher" : "Encrypt text with a silly cipher",
-        "uwuify" : "UwUify text",
-        "nuke" : "Permanently delete files"
-    }
-
-    _in_prefix = f"{BOLD}[{RESET}{BOLD}{GREEN}<{RESET}{BOLD}]{RESET}"
-    _out_prefix = f"{BOLD}[{RESET}{BOLD}{BLUE}>{RESET}{BOLD}]{RESET}"
-    _err_prefix = f"{BOLD}[{RESET}{BOLD}{CRIMSON}!{RESET}{BOLD}]{RESET}"
-
-    while True:
-        command = str(input(f"{_in_prefix}"))
-
-        if command == "exit":
-            exit(0)
-        elif command == "help":
-            print(f"{_out_prefix} Commands :")
-            for i in help_page:
-                print(f"{_out_prefix} {i} : {help_page[i]}")
-
-        elif command.startswith("cd") and len(command) > 2:
-            command = command.split(" ")
-            try:
-                os.chdir(command[1])
-                print(f"{_out_prefix} Current directory : {os.getcwd()}")
-            except FileNotFoundError:
-                print(f"{_err_prefix} Directory not found : {command[1]}")
-
-            
-        elif command == "convert":
-            print(f"{_out_prefix} What do you want to convert from ?")
-            print(f"{_out_prefix} 1 : binary")
-            print(f"{_out_prefix} 2 : hexadecimal")
-            print(f"{_out_prefix} 3 : ascii")
-            _from = str(input(f"{_in_prefix}"))
-            print(f"{_out_prefix} What do you want to convert to ?")
-            print(f"{_out_prefix} 1 : binary")
-            print(f"{_out_prefix} 2 : hexadecimal")
-            print(f"{_out_prefix} 3 : ascii")
-            print(f"{_out_prefix} 4 : braille")
-            _to = str(input(f"{_in_prefix}"))
-            print(f"{_out_prefix} Input :")
-            _input = str(input(f"{_in_prefix}"))
-            if _from == "1" and _to == "2":
-                print(f"{_out_prefix} Output : {binary2hex(_input)}")
-            elif _from == "1" and _to == "3":
-                print(f"{_out_prefix} Output : {binary2ascii(_input)}")
-            elif _from == "1" and _to == "4":
-                print(f"{_out_prefix} Output : {string_to_braille(binary2ascii(_input))}")
-            elif _from == "2" and _to == "1":
-                print(f"{_out_prefix} Output : {hex2binary(_input)}")
-            elif _from == "2" and _to == "3":
-                print(f"{_out_prefix} Output : {hex2ascii(_input)}")
-            elif _from == "2" and _to == "4":
-                print(f"{_out_prefix} Output : {string_to_braille(hex2ascii(_input))}")
-            elif _from == "3" and _to == "1":
-                print(f"{_out_prefix} Output : {ascii2binary(_input)}")
-            elif _from == "3" and _to == "2":
-                print(f"{_out_prefix} Output : {ascii2hex(_input)}")
-            elif _from == "3" and _to == "4":
-                print(f"{_out_prefix} Output : {string_to_braille(_input)}")
-
-        elif command == "braille":
-            print(f"{_out_prefix} Input :")
-            _input = str(input(f"{_in_prefix}"))
-            print(f"{_out_prefix} Output : {string_to_braille(_input)}")
-
-        elif command == "silly_cipher":
-            print(f"{_out_prefix} Input :")
-            _input = str(input(f"{_in_prefix}"))
-            print(f"{_out_prefix} Output : {silly_cipher(_input)}")
-
-        elif command == "uwuify":
-            print(f"{_out_prefix} Input :")
-            _input = str(input(f"{_in_prefix}"))
-            print(f"{_out_prefix} Output : {uwuify(_input)}")
-
-        elif command == "nuke":
-            print(f"{_out_prefix} Target file :")
-            _input = str(input(f"{_in_prefix}"))
-            nuke(_input, True)
-
-            
-
-
-        else:
-            try:
-                output, error = run_command(command)
-                if output:
-                    for i in output:
-                        print(f"{i}")
-
-                if error:
-                    for i in error:
-                        print(f"{_err_prefix}{i}")
-
-            except FileNotFoundError:
-                print(f"{_err_prefix} Command not found. Try again with a valid command")
-            except KeyboardInterrupt:
-                print(f"{_err_prefix} Exiting...")
-
 def makeQR(data, name="qr.png", display=True):
     # Create the QR code
     qr = qrcode.QRCode(
@@ -1220,9 +1042,6 @@ parser.add_argument("-sha1", help=f"\t[{GOLD}✚{RESET}] Calculates the SHA-1 ch
 #These are more general tools to make life easier, especially
 #in the fields of cybersecurity and the likes
 parser.add_argument("-n", "--nuke", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Deletes the input file permanently. {BOLD}{CRIMSON}Use with caution{RESET}.", nargs="*")
-parser.add_argument("-e", "--encrypt", nargs=2, help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Encrypts the input file with AES-128. Used like so : --encrypt <file> <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.")
-parser.add_argument("-d", "--decrypt", nargs=2, help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Decrypts the input file with AES-128. Used like so : --decrypt <file> <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.")
-parser.add_argument("-kgen", "--keygen", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Generates a new AES-128 key and saves it to a file. Used like so : --keygen <keyfile>{BOLD}{CRIMSON}Use with caution{RESET}.",action="store_true")
 
 parser.add_argument("-P","--ping", help=f"\t[{CRIMSON}{BOLD}◼{RESET}] Pings a host. Used like so : --ping <host>{BOLD}{CRIMSON}Use with caution{RESET}.",nargs=1)
 
@@ -1488,48 +1307,6 @@ if args.scorched_earth_strategy:
 
 if args.nuke:
     nuke(args.nuke,True)
-    exit(0)
-
-if args.encrypt:
-    try:
-        encrypt_file(args.encrypt[0], load_key_from_file(args.encrypt[1]))
-        print(f"{GREEN}{BOLD}File encrypted{RESET}")
-    except FileNotFoundError:
-        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
-        exit(404)
-    except PermissionError:
-        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
-        exit(-1)
-    exit(0)
-
-if args.decrypt:
-    try:
-        decrypt_file(args.decrypt[0], load_key_from_file(args.decrypt[1]))
-        print(f"{GREEN}{BOLD}File decrypted{RESET}")
-    except FileNotFoundError:
-        print(f"{CRIMSON}{BOLD}Error{RESET}: File not found. Try again with a valid file path")
-        exit(404)
-    except PermissionError:
-        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
-        exit(-1)
-    exit(0)
-
-if args.keygen:
-
-    if os.file.exists(args.input):
-        print(f"{CRIMSON}{BOLD}Error{RESET}: File already exists. Do you want to {GOLD}overwrite{RESET} it ? ({BOLD}{GREEN}y{RESET}/{BOLD}{CRIMSON}n{RESET})")
-
-        if str(input(f"[{BOLD}{GREEN}>{RESET}]")).lower() == "y":
-            pass
-        else:
-            exit(7)
-
-    try:
-        save_key_to_file(generate_key(), args.input)
-        print(f"{GREEN}{BOLD}Key saved to {args.input}{RESET}")
-    except PermissionError:
-        print(f"{CRIMSON}{BOLD}Error{RESET}: Permission denied. Try running this script as root")
-        exit(-1)
     exit(0)
 
 if args.zero_metadata:
