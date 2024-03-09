@@ -58,7 +58,7 @@ import socket
 #! exit(7)      =   Action aborted by user
 
 #? Variables containing some info about the tool
-VERSION = "1.0.5"
+VERSION = "1.0.6"
 AUTHORS = "Camille.Is_Me"
 
 MAIN_REPO = "TheDarkWolfer/Camille-s-Harmony-Toolkit"
@@ -96,13 +96,45 @@ BLINK = '\033[5m'
 
 if not os.path.exists(DATA_DIR):
     os.mkdir(DATA_DIR)
+    os.system("chmod 700 {DATA_DIR}")
     print(f"{BOLD}{YELLOW}Warning{RESET}{BOLD} : {DATA_DIR} doesn't exist ! Creating it...")
+
+
+#Creating a config file and some functions to access it
+if not os.path.exists(f"{DATA_DIR}/config"):
+    print(f"{BOLD}{YELLOW}Warning{RESET}{BOLD} : {DATA_DIR}/config doesn't exist ! Creating it...")
+    with open(f"{DATA_DIR}/config", "w") as f:
+        f.write(f"DOWNLOAD_DIR={DOWNLOAD_DIR}\n")
+        f.write(f"DATA_DIR={DATA_DIR}\n\n")
+        f.write(f"LAST_UPDATE={datetime.datetime.now()}\n")
+        f.write(f"LAST_UPDATE_CHECK={datetime.datetime.now()}\n")
+        f.write(f"CURRENT_VERSION={VERSION}\n")
+        f.close()
+
+#A function to read the config file, and look for a specific variable
+def read_config(variable):
+    with open(f"{DATA_DIR}/config", "r") as f:
+        for line in f:
+            if variable in line:
+                return line.split("=")[-1].strip("\n")
+            
+#A function to write to the config file, and change a specific variable
+def write_config(variable, value):
+    with open(f"{DATA_DIR}/config", "r") as f:
+        lines = f.readlines()
+        f.close()
+    with open(f"{DATA_DIR}/config", "w") as f:
+        for line in lines:
+            if variable in line:
+                f.write(f"{variable}={value}\n")
+            else:
+                f.write(line)
+        f.close()
 
 #A small function to download the latest release of the tool from github
 #You can change the repository you want to update it from in the "MAIN_REPO"
 #variable, if you want to change it to another repo containing a modified 
 #version of my toolkit ^v^
-    
 def update_script(repo):
 
     if os.getuid != 0:
@@ -123,6 +155,23 @@ def update_script(repo):
         shutil.copy2('harmonytoolkit', '/usr/bin/harmonytoolkit')
     except Exception as e:
         print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {e}")
+
+def check_if_newer_release(repo,version):
+    try:
+        # Get the latest release from GitHub API
+        response = requests.get(f"https://api.github.com/repos/{repo}/releases/latest")
+        data = response.json()
+        latest_version = data['tag_name']  # Adjust as needed
+
+        if latest_version > version:
+            return True
+        elif latest_version < version:
+            print(f"{BOLD}{CYAN}i{RESET} It seems you have an {GOLD}unreleased{RESET} version ! Lucky you ~.~")
+        else:
+            return False
+    except Exception as e:
+        print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {e}")
+
 
 #A function to load and use plugins made by third parties. 
 #! MAKE SURE THIRD PARTY PLUGINS ARE SAFE TO USE AND DON'T
@@ -255,7 +304,6 @@ def decrypt_file(filename, key):
     with open(filename, "wb") as file:
         file.write(decrypted_data)
 #####################################################################################################################
-
 def generate_checksum(file_path, algorithm='sha256'):
     """
     Generate a checksum for a given file using the specified algorithm.
@@ -519,6 +567,13 @@ def setup_scorched_earth():
             exit(7)
 
 def nuke(file_paths,verbose=False):
+
+    ###Small warning : using this on SSDs will reduce their lifespan###
+    print(f"{CRIMSON}{BOLD}/{BLINK}!{RESET}{CRIMSON}{BOLD}\\{RESET} WARNING : Using this on SSDs will reduce their lifespan {CRIMSON}{BOLD}/{BLINK}!{RESET}{CRIMSON}{BOLD}\\{RESET}\n")
+    if str(input(f"{CRIMSON}{BOLD}Are you sure you want to continue ? ({GREEN}{BOLD}y{RESET}/{CRIMSON}{BOLD}n{RESET})")).lower() != "y":
+        print(f"{CRIMSON}{BOLD}Aborted deletion{RESET}") if verbose else None
+        return
+
     if not file_paths:
         print(f"{CRIMSON}{BOLD}Error{RESET}: No file specified for deletion") if verbose else None
         return
@@ -551,7 +606,9 @@ def nuke(file_paths,verbose=False):
 
                 eta_formatted = time.strftime("%H:%M:%S", time.gmtime(eta))
 
-                print(f"Progress:{BOLD}{GOLD}[{RESET}{RED}{bar}{GOLD}{BOLD}]{RESET}-{GOLD}{BOLD}[{RESET}{BOLD}ETA:{GOLD}{BOLD}{eta_formatted}{RESET}", end="\r")if verbose else None
+                #if verbose:
+                    #print(f"Progress:{BOLD}{GOLD}[{RESET}{RED}{bar}{GOLD}{BOLD}]{RESET}-{GOLD}{BOLD}[{RESET}{BOLD}ETA:{GOLD}{BOLD}{eta_formatted}{RESET}", end="\r",flush=True)
+                    #os.system("clear")
                 try:
                     if type(file_path) == list:
                         for f in file_path:
@@ -1129,6 +1186,8 @@ parser.add_argument("-u","--update", help=f"\t[{GOLD}{BOLD}✚{RESET}] Updates t
 
 parser.add_argument("input", help=f"\t[{CYAN}{BOLD}STRING{RESET}] Input string", nargs='?', default="")
 
+parser.add_argument("-f", "--force", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tOverride argument ({CRIMSON}use sparingly !{RESET})", action="store_true")
+
 parser.add_argument("-b2a", "--binary2ascii", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts binary to ascii", action="store_true")
 parser.add_argument("-a2b", "--ascii2binary", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts ascii to binary", action="store_true")
 parser.add_argument("-h2b", "--hex2binary", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\tConverts hex to binary", action="store_true")
@@ -1138,7 +1197,6 @@ parser.add_argument("-a2h", "--ascii2hex", help=f"\t[{CYAN}{BOLD}STRING{RESET}] 
 parser.add_argument("-ir", "--regular-input", help=f"\t[{CYAN}{BOLD}STRING{RESET}] \t\t Take in a string simply. Used when you want to convert to braille, or other options", action="store_true")
 
 parser.add_argument("-s", "--separate", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tSeparates the output by octets (or by nibble if called more than once)", action="count")
-parser.add_argument("-f", "--format", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tFormats the output ({GREEN}{BOLD}ON{RESET} by default)", action="store_true")
 
 parser.add_argument("-c", "--copy", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{BOLD}OFF{RESET}] \t\tSaves the output to the clipboard, so that you can paste it with ctrl+v", action="store_true")
 
@@ -1189,6 +1247,7 @@ parser.add_argument("-uwu", "--uwuify", help=f"\t[{GOLD}✚{RESET}] UwU-ifies th
 
 #Here are some args to display credits and other info
 parser.add_argument("-ver", "--version", help=f"\t[{GOLD}✚{RESET}] Displays the version of {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
+parser.add_argument("-check-ver", "--check-newer-version", help=f"\t[{GOLD}✚{RESET}] Checks the repository for a newer version of {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
 parser.add_argument("-cre", "--credits", help=f"\t[{GOLD}✚{RESET}] Displays the credits for {GOLD}{BOLD}{__file__}{RESET}", action="store_true")
 parser.add_argument("-pl","--plugins",help=f"\t[{GOLD}✚{RESET}] Displays the plugins for {GOLD}{BOLD}{__file__}{RESET}",action="store_true")
 parser.add_argument("-pi","--plugin-info",help=f"\t[{GOLD}✚{RESET}] Displays the info for a plugin. Used like so : --plugin-info <plugin name>",nargs="*")
@@ -1215,9 +1274,13 @@ except Exception as e:
 args = parser.parse_args()
 
 
+doForce = args.force
+
+
+
 if len(plugin_list) > 0:
     for i in plugin_list:
-        i.execute(args,DOWNLOAD_DIR,DATA_DIR)
+        i.execute(args,DOWNLOAD_DIR,DATA_DIR,doForce)
 
 if args.plugins:
     for i in plugins:
@@ -1227,29 +1290,31 @@ if args.plugin_info:
 
     info_plugin_list = []
 
-    for i in args.plugin_info:
-        info_plugin_list.append(i)
+    if ("all" in args.plugin_info) or ("*" in args.plugin_info):
+        info_plugin_list = plugins
+    else:
+        for i in args.plugin_info:
+            info_plugin_list.append(i)
 
     try:
-        
-        for i in plugins:
-            if i.split("/")[-1] in info_plugin_list:
-                print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
-                plugin = load_plugin(i)
-                print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
-                for j in plugin.info():
-                    if j == "dependencies":
-                        print(f"\t{CYAN}dependencies{RESET} :")
-                        for i in plugin.info()[j]:
-                            print(f"\t\t- {i}")
-                    else:
-                        print(f"\t{CYAN}{j}{RESET} : {plugin.info()[j]}")
-                print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
-                break
+
+        for i in info_plugin_list:
+            print(f"{GREEN}{BOLD}i{RESET} : {CYAN}{i}{RESET}")
+            plugin = load_plugin(i)
+            print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
+            for j in plugin.info():
+                if j == "dependencies":
+                    print(f"\t{CYAN}dependencies{RESET} :")
+                    for i in plugin.info()[j]:
+                        print(f"\t\t- {i}")
+                else:
+                    print(f"\t{CYAN}{j}{RESET} : {plugin.info()[j]}")
+            print(f"{BOLD}{GOLD}-{RESET}"*int(os.get_terminal_size().columns))
 
     except:
 
         print(f"{CRIMSON}{BOLD}Error{RESET} : Could not find plugin {args.plugin_info[0]}")
+
 
 if args.ping:
 
@@ -1325,6 +1390,10 @@ if args.version:
 
 if args.credits:
     credits()
+    exit(0)
+
+if args.check_newer_version:
+    check_if_newer_release(MAIN_REPO, VERSION)
     exit(0)
 
 if args.shell:
