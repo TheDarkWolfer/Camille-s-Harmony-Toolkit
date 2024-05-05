@@ -64,9 +64,11 @@ MAIN_REPO = "TheDarkWolfer/Camille-s-Harmony-Toolkit"
 #? the project, and their github usernames
 MAIN_CONTRIBUTORS = {}
 
+TOOLNAME = "umbratools" #Since I keep oscillating between umbratools and camille-s-harmony-toolkit
+
 #? A variable with the tool's data directory, in case the user
 #? wants to use it for something
-DATA_DIR = os.path.join(os.path.expanduser("~"), ".harmonytoolkit")
+DATA_DIR = os.path.join(os.path.expanduser("~"), f".{toolname}")
 DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 
 #Defining ANSII escape codes to make outputs pretty
@@ -149,7 +151,7 @@ def update_script(repo):
         open('harmonytoolkit', 'wb').write(r.content)
 
         # Copy to /usr/bin (requires sudo)
-        shutil.copy2('harmonytoolkit', '/usr/bin/harmonytoolkit')
+        shutil.copy2(f'{toolname}', __file__)
     except Exception as e:
         print(f"{BOLD}{CRIMSON}Error{RESET}{BOLD} : {e}")
 
