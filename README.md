@@ -1,78 +1,41 @@
-# Introduction
+# Camille's Harmony Toolkit, AKA umbratools
+## A set of tools to make life easier.
 
-Harmony Toolkit is a comprehensive collection of utilities designed for secure file management, data conversion, and encryption. Developed by Camille, this toolkit offers a range of features from secure file deletion to conversion between binary, hexadecimal, and ASCII, alongside robust encryption management tools.
-Key Features
-
-    ### Data Conversion: Convert data between binary, hex, and ASCII.
-    ### File Security: Securely delete files with the nuke option.
-    ### Encryption Tools: Manage file encryption and decryption using AES-128.
-    ### Checksum Calculation: Compute MD5, SHA-256, and SHA-1 checksums for files.
-    ### QR Code Generation: Create QR codes from text or file content.
-    ### Output Customization: Options for colorful, kawaii, braille, and silly cipher outputs.
-    ### Clipboard Integration: Copy outputs directly to the clipboard.
-    ### Analysis Tool: Analyze input to determine its format.
-    ### Version and Credits Display: Easily view toolkit version and credits.
-
-# Installation
-
-To install Harmony Toolkit, follow these steps:
-
-Clone from the repository :
-`git clone https://TheDarkWolfer/Camille-s-Harmony-Toolkit/`
-
-Navigate to the new directory :
-`cd /Camille-s-Harmony-Toolkit`
-
-Ensure you have all the requirements installed :
-`pip install -r requirements.txt`
-
-## Usage
-
-To use Harmony Toolkit, open your terminal or command prompt and navigate to the directory where the toolkit is located. You can perform various operations as follows:
-You can also add a shorter alias to use the tool by running this command:
-
-`echo "alias cht='harmonytoolkit'" >> ~/.zshrc | ~/.bashrc #Choose depending on the shell you use`
-
-Or copy the main file (harmonytoolkit <- Python File) to your /usr/bin 
-(Just make sure you give it the right permissions to avoid opening gaping holes into your network security)
-`cp <wherever you have the dir>/Camille-s-Harmony-Toolkit/harmonytoolkit /usr/bin/`
+### What is it ?
+This is a toolkit I developped in python to quicken my workflow in Linux, and I decided to make it possible to expand upon it by implementing a plugin system. 
+The toolkit is still in it's infancy, so some features may not work as well as they should, and I'm open to any feedback. Some features could/will be removed or changed, as I have picked this toolkit's development back up, with a few things in mind.
 
 
+### What it do ?
+* Conversion to/from ASCII, hexadecimal and binary
+* checksum calculation (md5, sha1, sha256)
+* youtube video/audio download
+* qr code generation (output to file in .png form, and to terminal as ASCII art)
+* quarantine directory management (basically, a read-write only, root only directory to deal with sus files)
+* metadata removal using exiftool
+* redirecting output to clipboard (may not be compatible with your OS)
+* type analysis (whether it's ASCII, hexadecimal or binary, using regex)
+* secure file deletion (multiple passes with encryption and rewrite of the file with junk data)
+* system-wide integrity check (needs some polishing though)
+* scorched-earth-strategy (wipe the computer as thoroughly as possible ; may be deleted/changed to a plugin later, due to how dangerous it is, even with the failsafes implemented)
+* a few easter eggs, like converting regular text to "uwu"-like text, a weird (but working) cipher, and braille
+* rather good plugin system using python3
 
-Usage :
+### How do I install it ?
+Currently, the best (and only) way of installing the toolkit is to clone it's github repo, and either create a link to the "umbratools" file or move it to somewhere on your path. Plugins and config are automatically generated under `$HOME/.harmonytoolkit/`.
+There are plans to include it on the AUR and on pip, but it will take some time as life tends to get in the way, and I do this as a hobby/side project, you know
 
-`harmonytoolkit [options] [input]`
+To clone the repo, ensure you have `git` installed (`git --version`), then run the following command :
+```bash
+git clone https://github.com/TheDarkWolfer/Camille-s-Harmony-Toolkit
+```
+And if you want it on your path, you can do the following :
+```bash
+cd Camille-s-Harmony-Toolkit
+ln -s ./umbratools /usr/local/bin/umbratools
+```
 
-Examples
-
-    Convert Binary to ASCII:
-
-`harmonytoolkit -b2a 01001000`
-
-Encrypt a File:
-
-`harmonytoolkit -e myfile.txt keyfile`
-
-Generate a QR Code:
-
-`harmonytoolkit -qr "Sample Text"`
-
-Refer to the provided help page for a complete list of options and their descriptions.
-
-
-# Plugins : 
-
-You can write plugins to add to the tool without having to mess with the main file, by writing a small python script
-following simple guidelines and placing it in /home/.harmonytoolkit/plugins/
-
-You can find the template plugin in this repository, so you can easily copy, paste and modify it. Just make sure to respect
-the established structure, else the program won't like your plugin and throw a hissy fit.
-
-To list plugins, you can use this command :
-`harmonytoolkit -pl`
-
-To see more information about a plugin, use this command :
-`harmonytoolkit -pi <plugin name>`
-
-Have fun with it, and don't hesitate to share your plugin with others <3
-(Just make sure the plugins you use do not contain malicious code, be safe out there)
+Another thing you may want to do is shorten the name to an alias, like so :
+```bash
+echo "alias cht='umbratools'" >> ~/.zshrc | ~/.bashrc #Choose depending on the shell you use
+```
