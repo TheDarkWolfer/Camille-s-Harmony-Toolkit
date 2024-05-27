@@ -68,7 +68,7 @@ TOOLNAME = "umbratools" #Since I keep oscillating between umbratools and camille
 
 #? A variable with the tool's data directory, in case the user
 #? wants to use it for something
-DATA_DIR = os.path.join(os.path.expanduser("~"), f".{toolname}")
+DATA_DIR = os.path.join(os.path.expanduser("~"), f".{TOOLNAME}")
 DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 
 #Defining ANSII escape codes to make outputs pretty
