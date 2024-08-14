@@ -1026,7 +1026,7 @@ parser.add_argument("-c", "--copy", help=f"\t[{GREEN}{BOLD}ON{RESET}/{CRIMSON}{B
 
 parser.add_argument("-C","--color",help=f"\t[{GOLD}✚{RESET}] Makes the output colorful (default : on) \t\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
 
-parser.add_argument("-anal", "--analyze", help=f"\t[{GOLD}✚{RESET}] Analyzes the input and tells you what it is. Yes, it's an anal joke. \t\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
+parser.add_argument("-anal", "--analyze", help=f"\t[{GOLD}✚{RESET}] Analyzes the input and tells you what it is.\t\t[|binary:yes|hex:yes|ascii:yes|]", action="store_true")
 
 parser.add_argument("-zm","--zero-metadata", help=f"\t[{GOLD}✚{RESET}] Clears up the metadata of file(s).",nargs="*")
 
